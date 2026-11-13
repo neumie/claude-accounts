@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Variant B — Identity first · Claude accounts</title>
+<style>
+:root {
+  color-scheme: dark;
+
+  --chrome: #1a1c1f;
+  --pane:   #141517;
+  --well:   #0f1113;
+
+  --hairline:        rgba(255,255,255,0.07);
+  --hairline-strong: rgba(255,255,255,0.16);
+  --fill-subtle:     rgba(255,255,255,0.05);
+  --fill-raised:     rgba(255,255,255,0.09);
+  --fill-strong:     rgba(255,255,255,0.13);
+  --thumb:           rgba(255,255,255,0.14);
+  --thumb-hover:     rgba(255,255,255,0.24);
+  --scrim:           rgba(0,0,0,0.4);
+
+  --text-0: #ececee;
+  --text-1: #9a9ea6;
+  --text-2: #62666e;
+
+  --accent:            #4c9aff;
+  --accent-fill:       #3b82f6;
+  --accent-fill-hover: #5a9dff;
+  --on-accent:         #ffffff;
+  --success: #4ec98a;
+  --warn:    #e0b341;
+  --danger:  #f2585b;
+  --neutral: #8a8f98;
+
+  --accent-soft:  color-mix(in srgb, var(--accent) 15%, transparent);
+  --success-soft: color-mix(in srgb, var(--success) 15%, transparent);
+  --warn-soft:    color-mix(in srgb, var(--warn) 15%, transparent);
+  --danger-soft:  color-mix(in srgb, var(--danger) 15%, transparent);
+  --neutral-soft: color-mix(in srgb, var(--neutral) 15%, transparent);
+
+  --group-blue: #4c9aff; --group-purple: #c08ae0; --group-pink: #e477b5;
+  --group-red: #f2585b;  --group-orange: #e08a41; --group-green: #4ec98a;
+  --group-cyan: #54c6d6;
+
+  --radius-lg: 8px;
+  --radius-md: 6px;
+  --radius-sm: 4px;
+  --radius-full: 999px;
+
+  --shadow-1: 0 8px 24px rgba(0,0,0,0.35);
+  --shadow-2: 0 10px 30px -8px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.35);
+
+  --font-ui:   -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+  --font-mono: 'SF Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-8: 32px;
+
+  --motion-exit: 120ms;
+  --motion-state: 140ms;
+  --motion-enter: 150ms;
+  --ease: ease-out;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  background: var(--pane);
+  color: var(--text-0);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+}
+button { font-family: var(--font-ui); letter-spacing: -0.01em; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.c-gray{color:var(--neutral)} .c-blue{color:var(--accent)} .c-green{color:var(--success)}
+.c-amber{color:var(--warn)}   .c-red{color:var(--danger)}
+.bg-gray{background:var(--neutral)} .bg-blue{background:var(--accent)} .bg-green{background:var(--success)}
+.bg-amber{background:var(--warn)}   .bg-red{background:var(--danger)}
+.chip-gray{color:var(--neutral);background:var(--neutral-soft)}
+.chip-blue{color:var(--accent);background:var(--accent-soft)}
+.chip-green{color:var(--success);background:var(--success-soft)}
+.chip-amber{color:var(--warn);background:var(--warn-soft)}
+.chip-red{color:var(--danger);background:var(--danger-soft)}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);clip-path:inset(50%);white-space:nowrap;border:0}
+
+/* ---------- Showcase page (not part of the popup) ---------- */
+.page{padding:var(--sp-8)}
+.page__title{font-size:17px;font-weight:600;line-height:1.3;color:var(--text-0)}
+.page__concept{margin-top:var(--sp-2);max-width:720px;font-size:13px;color:var(--text-1)}
+.frames{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var(--sp-8) var(--sp-6);margin-top:var(--sp-6)}
+.frame-wrap{display:flex;flex-direction:column;gap:var(--sp-2);width:340px}
+.frame-cap{font-size:12px;color:var(--text-2)}
+/* Frame chrome stands in for Chrome's popup window */
+/* outline, not border: keeps the popup content at the real 340px */
+.frame{position:relative;width:340px;background:var(--pane);outline:1px solid var(--hairline);border-radius:var(--radius-lg);overflow:hidden}
+
+/* ---------- Popup: header ---------- */
+.hdr{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 16px;border-bottom:1px solid var(--hairline)}
+.hdr__id{display:flex;align-items:center;gap:8px;min-width:0}
+.hdr__brand{color:var(--accent);font-size:13px;font-weight:600}
+.hdr__actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.icon-btn{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0;border:0;border-radius:var(--radius-md);background:none;color:var(--text-2);font:inherit;font-size:16px;line-height:1;cursor:pointer;user-select:none;transition:background-color 140ms ease-out,color 140ms ease-out}
+.icon-btn:hover{background:var(--fill-subtle);color:var(--text-0)}
+.icon-btn--28{width:28px;height:28px}
+.link{display:inline-flex;align-items:center;min-height:24px;padding:0;border:0;background:none;color:var(--accent);font:500 11px var(--font-ui);cursor:pointer;opacity:.85;user-select:none}
+.link:hover{opacity:1}
+
+/* Push header (sub-page) */
+.push{display:flex;align-items:center;gap:4px;height:36px;padding:0 8px;border-bottom:1px solid var(--hairline)}
+.push__title{font-size:13px;font-weight:600;color:var(--text-0)}
+
+/* ---------- Identity block ---------- */
+.me{display:flex;align-items:flex-start;gap:12px;padding:20px 16px}
+.me__main{flex:1;min-width:0;display:flex;flex-direction:column}
+.me__label{font-size:12px;font-weight:500;color:var(--text-2);margin-bottom:4px}
+.me__email{font-size:17px;font-weight:600;line-height:1.3;color:var(--text-0);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.me__orgs{margin-top:4px;font-size:12px;color:var(--text-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.me__orgs .org{color:color-mix(in srgb, var(--org, var(--text-1)) 55%, var(--text-1))}
+.me__orgs .org-kind{color:var(--text-2)}
+.me__status{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11px;color:var(--text-2);font-variant-numeric:tabular-nums}
+.me__status strong{font-weight:500;color:var(--text-1)}
+
+.avatar{width:24px;height:24px;border-radius:50%;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;user-select:none;
+  color:var(--av,var(--group-blue));background:color-mix(in srgb,var(--av,var(--group-blue)) 15%,transparent)}
+.avatar--lg{width:40px;height:40px;font-size:13px}
+.avatar--add{color:var(--text-1);background:var(--fill-subtle);font-size:13px;font-weight:500}
+
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dot--pulse{animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* ---------- Sections ---------- */
+.sec{border-top:1px solid var(--hairline);padding-bottom:8px}
+.sec__hdr{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:24px;padding:20px 16px 4px;font-size:12px;font-weight:600;color:var(--text-1)}
+.sec__body{padding:4px 16px 8px}
+
+/* "Switch to" list: 36px single-line go-somewhere rows */
+.list{display:flex;flex-direction:column;padding:4px 0}
+.srow{display:flex;align-items:center;gap:12px;width:100%;height:36px;padding:0 16px;border:0;border-radius:0;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;user-select:none;transition:background-color 140ms ease-out}
+.srow:hover:not(:disabled){background:var(--fill-subtle)}
+.srow:active:not(:disabled){background:var(--fill-raised)}
+.srow:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.srow:disabled{opacity:.45;cursor:default}
+.srow__main{flex:1;min-width:0;display:flex;align-items:baseline;gap:8px}
+.srow__email{min-width:0;flex:0 1 auto;font-size:13px;font-weight:500;color:var(--text-0);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.srow__org{flex:1 1 0;min-width:0;font-size:11px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.srow__time{flex-shrink:0;font-size:11px;color:var(--text-2);font-variant-numeric:tabular-nums}
+.srow--add .srow__email{color:var(--text-1)}
+.srow--expired .srow__email{color:var(--text-1)}
+
+/* Facts */
+.fact{display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:28px;font-size:12px}
+.fact__label{flex-shrink:0;font-weight:500;color:var(--text-2)}
+.fact__value{min-width:0;color:var(--text-0);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fact__value--mono{font:11px var(--font-mono);color:var(--text-1)}
+.fact__value--muted{color:var(--text-1)}
+
+/* Artifact identity inside "This tab" */
+.art{display:flex;flex-direction:column;gap:4px;padding-bottom:8px}
+.art__title{font-size:13px;font-weight:500;color:var(--text-0);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:text}
+.art__id{font:11px var(--font-mono);color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:text}
+.tab-note{font-size:12px;color:var(--text-2)}
+.hint{margin-top:8px;font-size:11px;color:var(--text-2)}
+
+.btn-row{display:flex;align-items:center;gap:8px;margin-top:8px}
+.spacer{flex:1}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:28px;padding:0 12px;border:none;border-radius:var(--radius-md);font:600 12px var(--font-ui);letter-spacing:-0.01em;white-space:nowrap;cursor:pointer;user-select:none;transition:background-color 140ms ease-out,color 140ms ease-out}
+.btn--sm{height:24px;padding:0 10px}
+.btn--block{width:100%}
+.btn--grow{flex:1;min-width:0}
+.btn__label{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.btn--primary{background:var(--accent-fill);color:var(--on-accent)}
+.btn--primary:hover:not(:disabled){background:var(--accent-fill-hover)}
+.btn--quiet{background:var(--fill-raised);color:var(--text-0)}
+.btn--quiet:hover:not(:disabled){background:var(--fill-strong)}
+.btn--ghost{background:transparent;color:var(--text-2)}
+.btn--ghost:hover:not(:disabled){background:var(--fill-subtle);color:var(--text-0)}
+.btn--danger{background:var(--danger-soft);color:var(--danger)}
+.btn--danger:hover:not(:disabled){background:color-mix(in srgb,var(--danger) 22%,transparent)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn:focus-visible,.icon-btn:focus-visible,.link:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Chips */
+.chip{display:inline-flex;align-items:center;flex-shrink:0;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:500;line-height:1.4;white-space:nowrap}
+
+/* Notice */
+.notice{display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:var(--radius-md);font-size:12px;line-height:1.5;word-break:break-word}
+.notice > span{flex:1}
+.notice--warn{color:var(--warn);background:var(--warn-soft)}
+.notice--info{color:var(--text-1);background:var(--fill-subtle)}
+.notice .btn{background:var(--fill-raised);color:var(--text-0)}
+.notice .btn:hover{background:var(--fill-strong)}
+.notice-wrap{padding:4px 16px 8px}
+
+/* Empty */
+.empty{display:flex;flex-direction:column;align-items:center;text-align:center;padding:32px 16px}
+.empty__title{font-size:13px;font-weight:600;color:var(--text-1)}
+.empty__detail{margin-top:6px;font-size:12px;line-height:1.5;color:var(--text-2)}
+.empty__action{margin-top:16px}
+.empty__secondary{margin-top:8px}
+
+/* Segmented */
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);height:28px;padding:2px;background:var(--fill-subtle);border-radius:var(--radius-md);box-shadow:inset 0 0 0 1px var(--hairline)}
+.seg__opt{height:24px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--text-1);font:600 12px var(--font-ui);cursor:pointer;user-select:none;transition:background-color 140ms ease-out,color 140ms ease-out}
+.seg__opt[aria-checked="true"]{background:var(--fill-raised);color:var(--text-0)}
+.seg__opt:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.seg-desc{margin-top:8px;font-size:12px;color:var(--text-2)}
+
+/* Settings rows (read in place, act with visible button) */
+.mrow{display:flex;align-items:center;gap:12px;min-height:52px;padding:8px 16px}
+.mrow__main{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.mrow__title{font-size:13px;font-weight:500;color:var(--text-0);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:text}
+.mrow__meta{font-size:11px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;user-select:text}
+.mrow__meta .mono{font-family:var(--font-mono)}
+
+.mono{font-family:var(--font-mono);font-size:11px}
+</style>
+</head>
+<body>
+<main class="page">
+  <h1 class="page__title">Variant B — Identity first</h1>
+  <p class="page__concept">The popup opens on one question: who is Chrome signed in as right now. A large identity block (avatar, email as the only 17px title, orgs as plain text, live session line) owns the top. Below it, a compact "Switch to" list holds the other accounts as 36px single-line rows, each row being the switch button itself, with "Add account" as the last row. A "This tab" section closes the popup and explains the artifact in the active tab: its title and id, which account opens it, and the last auto-switch with Undo, or the confirm step in Ask mode. Section order never changes, so the eye always lands in the same place. Settings and remembered artifact mappings live one push away behind the header's settings button.</p>
+
+  <div class="frames">
+
+    <!-- 1. Normal -->
+    <section class="frame-wrap" aria-label="State 1">
+      <p class="frame-cap">1. Normal: 3 accounts, jakub@contember.com active</p>
+      <div class="frame">
+        <header class="hdr">
+          <div class="hdr__id"><span class="hdr__brand">Claude accounts</span></div>
+          <div class="hdr__actions">
+            <button class="link" type="button">Open claude.ai</button>
+            <button class="icon-btn" type="button" aria-label="Settings">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><path d="M2.5 4.5h7M12.5 4.5h1M2.5 11.5h1M6.5 11.5h7"/><circle cx="11" cy="4.5" r="1.5"/><circle cx="5" cy="11.5" r="1.5"/></svg>
+            </button>
+          </div>
+        </header>
+
+        <section class="me" aria-label="Active account">
+          <span class="avatar avatar--lg" style="--av:var(--group-orange)" aria-hidden="true">J</span>
+          <div class="me__main">
+            <div class="me__email">jakub@contember.com</div>
+            <div class="me__orgs"><span class="org" style="--org:var(--group-orange)">Contember</span> <span class="org-kind">team</span> · Personal</div>
+            <div class="me__status"><span class="dot bg-green" aria-hidden="true"></span><span><strong>Active in Chrome</strong> · session ok · since 09:12</span></div>
+          </div>
+        </section>
+
+        <section class="sec" aria-labelledby="s1-switch">
+          <h2 class="sec__hdr" id="s1-switch">Switch to</h2>
+          <div class="list">
+            <button class="srow" type="button" aria-label="Switch to ucet1@example.com, Neumie, used 2 hours ago">
+              <span class="avatar" style="--av:var(--group-purple)" aria-hidden="true">U2</span>
+              <span class="srow__main"><span class="srow__email">ucet1@example.com</span><span class="srow__org">Neumie</span></span>
+              <span class="srow__time" aria-hidden="true">2h</span>
+            </button>
+            <button class="srow" type="button" aria-label="Switch to jakub.neumann@gmail.com, Personal, used 3 days ago">
+              <span class="avatar" style="--av:var(--group-cyan)" aria-hidden="true">J</span>
+              <span class="srow__main"><span class="srow__email">jakub.neumann@gmail.com</span><span class="srow__org">Personal</span></span>
+              <span class="srow__time" aria-hidden="true">3d</span>
+            </button>
+            <button class="srow srow--add" type="button" aria-label="Add account: clears the claude.ai session in Chrome and opens claude.ai login">
+              <span class="avatar avatar--add" aria-hidden="true">+</span>
+              <span class="srow__main"><span class="srow__email">Add account</span><span class="srow__org">opens claude.ai login</span></span>
+            </button>
+          </div>
+        </section>
+
+        <section class="sec" aria-labelledby="s1-tab">
+          <h2 class="sec__hdr" id="s1-tab">This tab</h2>
+          <div class="sec__body">
+            <p class="tab-note">claude.ai chat, not an artifact.</p>
+            <div class="fact"><span class="fact__label">Artifact links</span><span class="fact__value fact__value--muted">Switch automatically</span></div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- 2. Auto-switched -->
+    <section class="frame-wrap" aria-label="State 2">
+      <p class="frame-cap">2. Artifact tab, just auto-switched (Undo)</p>
+      <div class="frame">
+        <header class="hdr">
+          <div class="hdr__id"><span class="hdr__brand">Claude accounts</span></div>
+          <div class="hdr__actions">
+            <button class="link" type="button">Open claude.ai</button>
+            <button class="icon-btn" type="button" aria-label="Settings">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><path d="M2.5 4.5h7M12.5 4.5h1M2.5 11.5h1M6.5 11.5h7"/><circle cx="11" cy="4.5" r="1.5"/><circle cx="5" cy="11.5" r="1.5"/></svg>
+            </button>
+          </div>
+        </header>
+
+        <section class="me" aria-label="Active account">
+          <span class="avatar avatar--lg" style="--av:var(--group-purple)" aria-hidden="true">U2</span>
+          <div class="me__main">
+            <div class="me__email">ucet1@example.com</div>
+            <div class="me__orgs"><span class="org" style="--org:var(--group-purple)">Neumie</span></div>
+            <div class="me__status"><span class="dot bg-green" aria-hidden="true"></span><span><strong>Active in Chrome</strong> · auto-switched 4s ago</span></div>
+          </div>
+        </section>
+
+        <section class="sec" aria-labelledby="s2-switch">
+          <h2 class="sec__hdr" id="s2-switch">Switch to</h2>
+          <div class="list">
+            <button class="srow" type="button" aria-label="Switch to jakub@contember.com, Contember and Personal, used just now">
+              <span class="avatar" style="--av:var(--group-orange)" aria-hidden="true">J</span>
+              <span class="srow__main"><span class="srow__email">jakub@contember.com</span><span class="srow__org">Contember</span></span>
+              <span class="srow__time" aria-hidden="true">now</span>
+            </button>
+            <button class="srow" type="button" aria-label="Switch to jakub.neumann@gmail.com, Personal, used 3 days ago">
+              <span class="avatar" style="--av:var(--group-cyan)" aria-hidden="true">J</span>
+              <span class="srow__main"><span class="srow__email">jakub.neumann@gmail.com</span><span class="srow__org">Personal</span></span>
+              <span class="srow__time" aria-hidden="true">3d</span>
+            </button>
+            <button class="srow srow--add" type="button" aria-label="Add account: clears the claude.ai session in Chrome and opens claude.ai login">
+              <span class="avatar avatar--add" aria-hidden="true">+</span>
+              <span class="srow__main"><span class="srow__email">Add account</span><span class="srow__org">opens claude.ai login</span></span>
+            </button>
+          </div>
+        </section>
+
+        <section class="sec" aria-labelledby="s2-tab">
+          <h2 class="sec__hdr" id="s2-tab">This tab</h2>
+          <div class="sec__body" role="status" aria-live="polite">
+            <div class="art">
+              <span class="art__title">Q3 pricing model</span>
+              <span class="art__id">artifact/7f3c9e02…a21e</span>
+            </div>
+            <div class="fact"><span class="fact__label">Opens with</span><span class="fact__value">ucet1@example.com</span></div>
+            <div class="fact"><span class="fact__label">Switched from</span><span class="fact__value fact__value--muted">jakub@contember.com · 4s ago</span></div>
+            <div class="btn-row">
+              <button class="btn btn--sm btn--quiet" type="button">Undo switch</button>
+              <button class="btn btn--sm btn--ghost" type="button">Forget this artifact</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- 3. Ask mode -->
+    <section class="frame-wrap" aria-label="State 3">
+      <p class="frame-cap">3. Ask mode: artifact needs another account</p>
+      <div class="frame">
+        <header class="hdr">
+          <div class="hdr__id"><span class="hdr__brand">Claude accounts</span></div>
+          <div class="hdr__actions">
+            <button class="link" type="button">Open claude.ai</button>
+            <button class="icon-btn" type="button" aria-label="Settings">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><path d="M2.5 4.5h7M12.5 4.5h1M2.5 11.5h1M6.5 11.5h7"/><circle cx="11" cy="4.5" r="1.5"/><circle cx="5" cy="11.5" r="1.5"/></svg>
+            </button>
+          </div>
+        </header>
+
+        <section class="me" aria-label="Active account">
+          <span class="avatar avatar--lg" style="--av:var(--group-orange)" aria-hidden="true">J</span>
+          <div class="me__main">
+            <div class="me__email">jakub@contember.com</div>
+            <div class="me__orgs"><span class="org" style="--org:var(--group-orange)">Contember</span> <span class="org-kind">team</span> · Personal</div>
+            <div class="me__status"><span class="dot bg-green" aria-hidden="true"></span><span><strong>Active in Chrome</strong> · session ok · since 09:12</span></div>
+          </div>
+        </section>
+
+        <section class="sec" aria-labelledby="s3-switch">
+          <h2 class="sec__hdr" id="s3-switch">Switch to</h2>
+          <div class="list">
+            <button class="srow" type="button" aria-label="Switch to ucet1@example.com, Neumie, used 2 hours ago">
+              <span class="avatar" style="--av:var(--group-purple)" aria-hidden="true">U2</span>
+              <span class="srow__main"><span class="srow__email">ucet1@example.com</span><span class="srow__org">Neumie</span></span>
+              <span class="srow__time" aria-hidden="true">2h</span>
+            </button>
+            <button class="srow" type="button" aria-label="Switch to jakub.neumann@gmail.com, Personal, used 3 days ago">
+              <span class="avatar" style="--av:var(--group-cyan)" aria-hidden="true">J</span>
+              <span class="srow__main"><span class="srow__email">jakub.neumann@gmail.com</span><span class="srow__org">Personal</span></span>
+              <span class="srow__time" aria-hidden="true">3d</span>
+            </button>
+            <button class="srow srow--add" type="button" aria-label="Add account: clears the claude.ai session in Chrome and opens claude.ai login">
+              <span class="avatar avatar--add" aria-hidden="true">+</span>
+              <span class="srow__main"><span class="srow__email">Add account</span><span class="srow__org">opens claude.ai login</span></span>
+            </button>
+          </div>
+        </section>
+
+        <section class="sec" aria-labelledby="s3-tab">
+          <h2 class="sec__hdr" id="s3-tab">This tab</h2>
+          <div class="sec__body">
+            <div class="art">
+              <span class="art__title">Onboarding flow v2</span>
+              <span class="art__id">artifact/b19d44c7…0f3a</span>
+            </div>
+            <output class="notice notice--warn"><span>This account can't open this artifact. ucet1@example.com can.</span></output>
+            <div class="btn-row">
+              <button class="btn btn--primary btn--grow" type="button"><span class="btn__label">Switch to ucet1@example.com</span></button>
+              <button class="btn btn--quiet" type="button">Stay</button>
+            </div>
+            <p class="hint">Ask mode is on. Switching reloads this tab and remembers the account for this artifact.</p>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- 4. Session expired -->
+    <section class="frame-wrap" aria-label="State 4">
+      <p class="frame-cap">4. One account's session expired</p>
+      <div class="frame">
+        <header class="hdr">
+          <div class="hdr__id"><span class="hdr__brand">Claude accounts</span></div>
+          <div class="hdr__actions">
+            <button class="link" type="button">Open claude.ai</button>
+            <button class="icon-btn" type="button" aria-label="Settings">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><path d="M2.5 4.5h7M12.5 4.5h1M2.5 11.5h1M6.5 11.5h7"/><circle cx="11" cy="4.5" r="1.5"/><circle cx="5" cy="11.5" r="1.5"/></svg>
+            </button>
+          </div>
+        </header>
+
+        <section class="me" aria-label="Active account">
+          <span class="avatar avatar--lg" style="--av:var(--group-orange)" aria-hidden="true">J</span>
+          <div class="me__main">
+            <div class="me__email">jakub@contember.com</div>
+            <div class="me__orgs"><span class="org" style="--org:var(--group-orange)">Contember</span> <span class="org-kind">team</span> · Personal</div>
+            <div class="me__status"><span class="dot bg-green" aria-hidden="true"></span><span><strong>Active in Chrome</strong> · session ok · since 09:12</span></div>
+          </div>
+        </section>
+
+        <section class="sec" aria-labelledby="s4-switch">
+          <h2 class="sec__hdr" id="s4-switch">Switch to</h2>
+          <div class="list">
+            <button class="srow" type="button" aria-label="Switch to ucet1@example.com, Neumie, used 2 hours ago">
+              <span class="avatar" style="--av:var(--group-purple)" aria-hidden="true">U2</span>
+              <span class="srow__main"><span class="srow__email">ucet1@example.com</span><span class="srow__org">Neumie</span></span>
+              <span class="srow__time" aria-hidden="true">2h</span>
+            </button>
+            <button class="srow srow--expired" type="button" aria-label="Log in again as jakub.neumann@gmail.com, session expired">
+              <span class="avatar" style="--av:var(--group-cyan)" aria-hidden="true">J</span>
+              <span class="srow__main"><span class="srow__email">jakub.neumann@gmail.com</span></span>
+              <span class="chip chip-amber" aria-hidden="true">Expired</span>
+            </button>
+            <button class="srow srow--add" type="button" aria-label="Add account: clears the claude.ai session in Chrome and opens claude.ai login">
+              <span class="avatar avatar--add" aria-hidden="true">+</span>
+              <span class="srow__main"><span class="srow__email">Add account</span><span class="srow__org">opens claude.ai login</span></span>
+            </button>
+          </div>
+          <div class="notice-wrap">
+            <output class="notice notice--warn"><span>jakub.neumann@gmail.com was logged out. Log in on claude.ai, then save it again.</span><button class="btn btn--sm btn--quiet" type="button">Log in again</button></output>
+          </div>
+        </section>
+
+        <section class="sec" aria-labelledby="s4-tab">
+          <h2 class="sec__hdr" id="s4-tab">This tab</h2>
+          <div class="sec__body">
+            <p class="tab-note">Not on claude.ai.</p>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- 5. Empty -->
+    <section class="frame-wrap" aria-label="State 5">
+      <p class="frame-cap">5. Empty: no accounts saved</p>
+      <div class="frame">
+        <header class="hdr">
+          <div class="hdr__id"><span class="hdr__brand">Claude accounts</span></div>
+          <div class="hdr__actions">
+            <button class="link" type="button">Open claude.ai</button>
+            <button class="icon-btn" type="button" aria-label="Settings">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><path d="M2.5 4.5h7M12.5 4.5h1M2.5 11.5h1M6.5 11.5h7"/><circle cx="11" cy="4.5" r="1.5"/><circle cx="5" cy="11.5" r="1.5"/></svg>
+            </button>
+          </div>
+        </header>
+
+        <div class="empty">
+          <div class="empty__title">No accounts saved</div>
+          <div class="empty__detail">Chrome is signed in to claude.ai as ucet1@example.com. Save it here to switch with one click.</div>
+          <button class="btn btn--primary empty__action" type="button">Save current account</button>
+          <button class="btn btn--ghost empty__secondary" type="button">Log in to another account</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Switching -->
+    <section class="frame-wrap" aria-label="State 6">
+      <p class="frame-cap">6. Switching in progress</p>
+      <div class="frame" aria-busy="true">
+        <header class="hdr">
+          <div class="hdr__id"><span class="hdr__brand">Claude accounts</span></div>
+          <div class="hdr__actions">
+            <button class="link" type="button">Open claude.ai</button>
+            <button class="icon-btn" type="button" aria-label="Settings">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><path d="M2.5 4.5h7M12.5 4.5h1M2.5 11.5h1M6.5 11.5h7"/><circle cx="11" cy="4.5" r="1.5"/><circle cx="5" cy="11.5" r="1.5"/></svg>
+            </button>
+          </div>
+        </header>
+
+        <section class="me" aria-label="Switching account">
+          <span class="avatar avatar--lg" style="--av:var(--group-purple)" aria-hidden="true">U2</span>
+          <div class="me__main">
+            <div class="me__label">Switching to</div>
+            <div class="me__email">ucet1@example.com</div>
+            <div class="me__orgs"><span class="org" style="--org:var(--group-purple)">Neumie</span></div>
+            <div class="me__status" role="status" aria-live="polite"><span class="dot bg-blue dot--pulse" aria-hidden="true"></span><span><strong>Switching…</strong> reloading 2 claude.ai tabs</span></div>
+          </div>
+        </section>
+
+        <section class="sec" aria-labelledby="s6-switch">
+          <h2 class="sec__hdr" id="s6-switch">Switch to</h2>
+          <div class="list">
+            <button class="srow" type="button" disabled aria-label="Switch to jakub@contember.com, previous account">
+              <span class="avatar" style="--av:var(--group-orange)" aria-hidden="true">J</span>
+              <span class="srow__main"><span class="srow__email">jakub@contember.com</span><span class="srow__org">Contember</span></span>
+              <span class="srow__time" aria-hidden="true">now</span>
+            </button>
+            <button class="srow" type="button" disabled aria-label="Switch to jakub.neumann@gmail.com">
+              <span class="avatar" style="--av:var(--group-cyan)" aria-hidden="true">J</span>
+              <span class="srow__main"><span class="srow__email">jakub.neumann@gmail.com</span><span class="srow__org">Personal</span></span>
+              <span class="srow__time" aria-hidden="true">3d</span>
+            </button>
+            <button class="srow srow--add" type="button" disabled aria-label="Add account">
+              <span class="avatar avatar--add" aria-hidden="true">+</span>
+              <span class="srow__main"><span class="srow__email">Add account</span><span class="srow__org">opens claude.ai login</span></span>
+            </button>
+          </div>
+        </section>
+
+        <section class="sec" aria-labelledby="s6-tab">
+          <h2 class="sec__hdr" id="s6-tab">This tab</h2>
+          <div class="sec__body">
+            <p class="tab-note">Reloading after the switch.</p>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- 7. Settings sub-page -->
+    <section class="frame-wrap" aria-label="State 7">
+      <p class="frame-cap">7. Settings (push from header), remembered artifacts</p>
+      <div class="frame">
+        <header class="push">
+          <button class="icon-btn icon-btn--28" type="button" aria-label="Back">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 3L4.5 7l4 4"/></svg>
+          </button>
+          <h2 class="push__title">Settings</h2>
+        </header>
+
+        <section class="sec" style="border-top:0" aria-labelledby="s7-auto">
+          <h3 class="sec__hdr" id="s7-auto">Artifact links</h3>
+          <div class="sec__body">
+            <div class="seg" role="radiogroup" aria-labelledby="s7-auto" data-desc="s7-desc">
+              <button class="seg__opt" type="button" role="radio" aria-checked="true" tabindex="0" data-desc-text="When this account can't open an artifact, switch to the account that can and reload.">Auto</button>
+              <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1" data-desc-text="Show the account that can open it and ask before switching.">Ask</button>
+              <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1" data-desc-text="Never switch for artifact links.">Off</button>
+            </div>
+            <p class="seg-desc" id="s7-desc">When this account can't open an artifact, switch to the account that can and reload.</p>
+          </div>
+        </section>
+
+        <section class="sec" aria-labelledby="s7-map">
+          <div class="sec__hdr"><h3 id="s7-map" style="font:inherit">Remembered artifacts</h3><button class="btn btn--sm btn--ghost" type="button">Forget all</button></div>
+          <div role="list">
+            <div class="mrow" role="listitem">
+              <div class="mrow__main">
+                <span class="mrow__title">Q3 pricing model</span>
+                <span class="mrow__meta">ucet1@example.com · <span class="mono">7f3c9e02…a21e</span></span>
+              </div>
+              <button class="btn btn--sm btn--ghost" type="button" aria-label="Forget Q3 pricing model">Forget</button>
+            </div>
+            <div class="mrow" role="listitem">
+              <div class="mrow__main">
+                <span class="mrow__title">Onboarding flow v2</span>
+                <span class="mrow__meta">ucet1@example.com · <span class="mono">b19d44c7…0f3a</span></span>
+              </div>
+              <button class="btn btn--sm btn--ghost" type="button" aria-label="Forget Onboarding flow v2">Forget</button>
+            </div>
+            <div class="mrow" role="listitem">
+              <div class="mrow__main">
+                <span class="mrow__title">Contember roadmap 2027</span>
+                <span class="mrow__meta">jakub@contember.com · <span class="mono">e40a17bb…93cd</span></span>
+              </div>
+              <button class="btn btn--sm btn--ghost" type="button" aria-label="Forget Contember roadmap 2027">Forget</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="sec" aria-labelledby="s7-acc">
+          <h3 class="sec__hdr" id="s7-acc">Saved accounts</h3>
+          <div role="list">
+            <div class="mrow" role="listitem">
+              <span class="avatar" style="--av:var(--group-orange)" aria-hidden="true">J</span>
+              <div class="mrow__main">
+                <span class="mrow__title">jakub@contember.com</span>
+                <span class="mrow__meta">Contember · Personal · active</span>
+              </div>
+              <button class="btn btn--sm btn--danger" type="button" aria-label="Remove jakub@contember.com">Remove</button>
+            </div>
+            <div class="mrow" role="listitem">
+              <span class="avatar" style="--av:var(--group-purple)" aria-hidden="true">U2</span>
+              <div class="mrow__main">
+                <span class="mrow__title">ucet1@example.com</span>
+                <span class="mrow__meta">Neumie · used 2h ago</span>
+              </div>
+              <button class="btn btn--sm btn--danger" type="button" aria-label="Remove ucet1@example.com">Remove</button>
+            </div>
+            <div class="mrow" role="listitem">
+              <span class="avatar" style="--av:var(--group-cyan)" aria-hidden="true">J</span>
+              <div class="mrow__main">
+                <span class="mrow__title">jakub.neumann@gmail.com</span>
+                <span class="mrow__meta">Personal · session expired</span>
+              </div>
+              <button class="btn btn--sm btn--danger" type="button" aria-label="Remove jakub.neumann@gmail.com">Remove</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<script>
+// Demo only: segmented control (click + arrow keys) updates its description.
+document.querySelectorAll('.seg').forEach(function (seg) {
+  var opts = Array.prototype.slice.call(seg.querySelectorAll('.seg__opt'));
+  var desc = document.getElementById(seg.dataset.desc);
+  function pick(i, focus) {
+    opts.forEach(function (o, j) {
+      o.setAttribute('aria-checked', String(i === j));
+      o.tabIndex = i === j ? 0 : -1;
+    });
+    if (desc) desc.textContent = opts[i].dataset.descText;
+    if (focus) opts[i].focus();
+  }
+  opts.forEach(function (o, i) {
+    o.addEventListener('click', function () { pick(i, false); });
+    o.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); pick((i + 1) % opts.length, true); }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); pick((i - 1 + opts.length) % opts.length, true); }
+    });
+  });
+});
+</script>
+</body>
+</html>

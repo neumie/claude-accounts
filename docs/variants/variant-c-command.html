@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Variant C: Command palette</title>
+<style>
+:root {
+  color-scheme: dark;
+
+  --chrome: #1a1c1f;
+  --pane:   #141517;
+  --well:   #0f1113;
+
+  --hairline:        rgba(255,255,255,0.07);
+  --hairline-strong: rgba(255,255,255,0.16);
+  --fill-subtle:     rgba(255,255,255,0.05);
+  --fill-raised:     rgba(255,255,255,0.09);
+  --fill-strong:     rgba(255,255,255,0.13);
+  --thumb:           rgba(255,255,255,0.14);
+  --thumb-hover:     rgba(255,255,255,0.24);
+  --scrim:           rgba(0,0,0,0.4);
+
+  --text-0: #ececee;
+  --text-1: #9a9ea6;
+  --text-2: #62666e;
+
+  --accent:            #4c9aff;
+  --accent-fill:       #3b82f6;
+  --accent-fill-hover: #5a9dff;
+  --on-accent:         #ffffff;
+  --success: #4ec98a;
+  --warn:    #e0b341;
+  --danger:  #f2585b;
+  --neutral: #8a8f98;
+
+  --accent-soft:  color-mix(in srgb, var(--accent) 15%, transparent);
+  --success-soft: color-mix(in srgb, var(--success) 15%, transparent);
+  --warn-soft:    color-mix(in srgb, var(--warn) 15%, transparent);
+  --danger-soft:  color-mix(in srgb, var(--danger) 15%, transparent);
+  --neutral-soft: color-mix(in srgb, var(--neutral) 15%, transparent);
+
+  --group-blue: #4c9aff; --group-purple: #c08ae0; --group-pink: #e477b5;
+  --group-red: #f2585b;  --group-orange: #e08a41; --group-green: #4ec98a;
+  --group-cyan: #54c6d6;
+
+  --radius-lg: 8px;
+  --radius-md: 6px;
+  --radius-sm: 4px;
+  --radius-full: 999px;
+
+  --shadow-1: 0 8px 24px rgba(0,0,0,0.35);
+  --shadow-2: 0 10px 30px -8px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.35);
+
+  --font-ui:   -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+  --font-mono: 'SF Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-8: 32px;
+
+  --motion-exit: 120ms;
+  --motion-state: 140ms;
+  --motion-enter: 150ms;
+  --ease: ease-out;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  background: var(--well);
+  color: var(--text-0);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.c-blue{color:var(--accent)} .bg-blue{background:var(--accent)}
+.chip-blue{color:var(--accent);background:var(--accent-soft)}
+.chip-amber{color:var(--warn);background:var(--warn-soft)}
+.chip-gray{color:var(--neutral);background:var(--neutral-soft)}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);clip-path:inset(50%);white-space:nowrap;border:0}
+
+/* ---------- Page (not part of the popup) ---------- */
+.page{padding:var(--sp-8)}
+.page__title{font-size:17px;font-weight:600;line-height:1.3;color:var(--text-0)}
+.page__desc{margin-top:var(--sp-2);max-width:760px;font-size:13px;color:var(--text-1)}
+.page__desc kbd{font-size:11px}
+.frames{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var(--sp-8) var(--sp-6);margin-top:var(--sp-6)}
+.frame{width:340px}
+.frame__cap{margin-bottom:var(--sp-2);font-size:12px;color:var(--text-2)}
+/* Frame chrome only stands in for Chrome's popup window */
+.popup{position:relative;width:340px;background:var(--pane);border:1px solid var(--hairline);border-radius:var(--radius-lg);overflow:hidden}
+
+/* ---------- Filter input ---------- */
+.bar{padding:var(--sp-3) var(--sp-4);border-bottom:1px solid var(--hairline)}
+.field{position:relative}
+.input{display:block;width:100%;height:28px;padding:0 10px;background:var(--fill-subtle);border:1px solid var(--hairline);border-radius:var(--radius-md);color:var(--text-0);font:12px var(--font-ui);letter-spacing:-0.01em;outline:none;transition:border-color 140ms ease-out}
+.input::placeholder{color:var(--text-2)}
+.input:hover{border-color:var(--hairline-strong)}
+.input:focus,.input.is-focus{border-color:var(--accent)}
+.input:disabled{opacity:.45;cursor:default}
+.field__meta{position:absolute;top:0;right:var(--sp-2);height:28px;display:flex;align-items:center;font-size:11px;color:var(--text-2);font-variant-numeric:tabular-nums;pointer-events:none}
+
+/* ---------- "This tab" strip (only on artifact tabs) ---------- */
+.ctx{display:flex;flex-direction:column;gap:var(--sp-1);padding:var(--sp-2) var(--sp-4) var(--sp-3);border-bottom:1px solid var(--hairline)}
+.ctx__l1{display:flex;align-items:baseline;gap:var(--sp-2);min-width:0}
+.ctx__label{flex-shrink:0;font-size:12px;font-weight:500;color:var(--text-2)}
+.mono{font:11px var(--font-mono);color:var(--text-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ctx__msg{display:flex;align-items:center;gap:var(--sp-2);font-size:12px;color:var(--text-1)}
+.ctx__msg > span{flex:1;min-width:0}
+.ctx__msg b{font-weight:600;color:var(--text-0)}
+.ctx__actions{display:flex;gap:var(--sp-2);margin-top:var(--sp-1)}
+
+/* ---------- Sections + rows ---------- */
+.sec{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);padding:var(--sp-2) var(--sp-4) var(--sp-1);font-size:12px;font-weight:600;color:var(--text-1)}
+.sec--rule{border-top:1px solid var(--hairline);margin-top:var(--sp-1)}
+.sec__meta{font-size:11px;font-weight:400;color:var(--text-2);font-variant-numeric:tabular-nums}
+.list{list-style:none;display:flex;flex-direction:column;padding-bottom:var(--sp-1)}
+
+.row{display:flex;align-items:center;gap:var(--sp-3);width:100%;min-height:52px;padding:var(--sp-2) var(--sp-4);border:0;border-radius:0;background:transparent;color:inherit;font:inherit;letter-spacing:inherit;text-align:left;cursor:pointer;user-select:none;transition:background-color 140ms ease-out}
+.row:hover{background:var(--fill-subtle)}
+.row:active{background:var(--fill-raised)}
+.row.is-cursor{background:var(--fill-raised)}               /* keyboard cursor: where ↵ goes */
+.row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.row.is-active{cursor:default}
+.row.is-active:hover{background:transparent}
+.row:disabled{cursor:default;opacity:.45}
+.row:disabled:hover{background:transparent}
+.row.is-busy{cursor:progress}
+.row.is-busy:hover{background:var(--fill-raised)}
+.row__lead{flex-shrink:0;width:16px;display:inline-flex;align-items:center;justify-content:center;color:var(--text-2)}
+.row.is-active .row__lead{color:var(--accent)}
+.row__main{flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--sp-1)}
+.row__l1{display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp-2)}
+.row__title{font-size:13px;font-weight:500;line-height:18px;color:var(--text-0);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row__title--dim{color:var(--text-1)}
+.row__time{flex-shrink:0;font-size:11px;line-height:18px;color:var(--text-2);font-variant-numeric:tabular-nums}
+.row__meta{display:flex;align-items:center;gap:var(--sp-2);min-width:0;font-size:11px;line-height:18px;color:var(--text-2);white-space:nowrap}
+.row__orgs{overflow:hidden;text-overflow:ellipsis}
+.row__key{flex-shrink:0;min-width:16px;text-align:right;font:11px var(--font-mono);color:var(--text-2)}
+.row__busy{flex-shrink:0;display:inline-flex;align-items:center;gap:var(--sp-2);font-size:11px;color:var(--text-1)}
+
+.row--action{min-height:28px;padding:var(--sp-1) var(--sp-4)}
+.row--action .row__title{font-weight:400;line-height:20px}
+
+mark{background:none;color:var(--text-0);font-weight:600}
+.is-filtered .row__title,.is-filtered .row__orgs{color:var(--text-1)}
+
+.chip{display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-full);font-size:11px;font-weight:500;line-height:1.4;white-space:nowrap}
+
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dot--pulse{animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* ---------- Kbd hint line ---------- */
+.hints{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-1) var(--sp-2);padding:var(--sp-2) var(--sp-4);border-top:1px solid var(--hairline);font-size:12px;color:var(--text-2)}
+.hints > span{display:inline-flex;align-items:center;gap:var(--sp-1);white-space:nowrap}
+.hints > span + span{margin-left:var(--sp-1)}
+kbd{font-family:var(--font-mono);font-size:11px;line-height:1.4;padding:1px 5px;border:1px solid var(--fill-raised);border-radius:var(--radius-sm);background:var(--fill-subtle);color:var(--text-1)}
+
+/* ---------- Status bar ---------- */
+.status{display:flex;flex-direction:column;gap:var(--sp-1);padding:var(--sp-2) var(--sp-4);border-top:1px solid var(--hairline);background:var(--pane)}
+.status__l1{display:flex;align-items:center;gap:var(--sp-2)}
+.status__label{flex-shrink:0;white-space:nowrap;font-size:12px;font-weight:500;color:var(--text-2)}
+.status__event{font-size:11px;line-height:18px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.spacer{flex:1}
+
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);height:28px;padding:2px;background:var(--fill-subtle);border-radius:var(--radius-md);box-shadow:inset 0 0 0 1px var(--hairline)}
+.seg--compact{width:132px}
+.seg__opt{height:24px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--text-1);font:600 12px var(--font-ui);letter-spacing:-0.01em;white-space:nowrap;cursor:pointer;user-select:none;transition:background-color 140ms ease-out,color 140ms ease-out}
+.seg__opt:hover{color:var(--text-0)}
+.seg__opt[aria-checked="true"]{background:var(--fill-raised);color:var(--text-0)}
+.seg__opt:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ---------- Buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-2);height:28px;padding:0 12px;border:none;border-radius:var(--radius-md);font:600 12px var(--font-ui);letter-spacing:-0.01em;white-space:nowrap;cursor:pointer;user-select:none;transition:background-color 140ms ease-out,color 140ms ease-out}
+.btn--sm{height:24px;padding:0 10px}
+.btn--primary{background:var(--accent-fill);color:var(--on-accent)}
+.btn--primary:hover:not(:disabled){background:var(--accent-fill-hover)}
+.btn--quiet{background:var(--fill-raised);color:var(--text-0)}
+.btn--quiet:hover:not(:disabled){background:var(--fill-strong)}
+.btn--ghost{background:transparent;color:var(--text-2)}
+.btn--ghost:hover:not(:disabled){background:var(--fill-subtle);color:var(--text-0)}
+.btn--danger{background:var(--danger-soft);color:var(--danger)}
+.btn--danger:hover:not(:disabled){background:color-mix(in srgb,var(--danger) 22%,transparent)}
+.btn:disabled{opacity:.45;cursor:default}
+.icon-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border:0;border-radius:var(--radius-md);background:none;color:var(--text-2);cursor:pointer;transition:background-color 140ms ease-out,color 140ms ease-out}
+.icon-btn:hover{background:var(--fill-subtle);color:var(--text-0)}
+.btn:focus-visible,.icon-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ---------- Empty state ---------- */
+.empty{display:flex;flex-direction:column;align-items:center;text-align:center;padding:var(--sp-8) var(--sp-4)}
+.empty__title{font-size:13px;font-weight:600;color:var(--text-1)}
+.empty__detail{margin-top:6px;font-size:12px;line-height:1.5;color:var(--text-2)}
+.empty__action{margin-top:var(--sp-4)}
+.empty__alt{margin-top:var(--sp-2)}
+
+/* ---------- Push sub-page (auto-switch settings) ---------- */
+.push{display:flex;align-items:center;gap:var(--sp-1);height:36px;padding:0 var(--sp-4) 0 var(--sp-2);border-bottom:1px solid var(--hairline)}
+.push__title{font-size:13px;font-weight:600;color:var(--text-0)}
+.group{border-top:1px solid var(--hairline)}
+.group:first-of-type{border-top:0}
+.group__hdr{display:flex;justify-content:space-between;align-items:center;padding:var(--sp-5) var(--sp-4) var(--sp-1);font-size:12px;font-weight:600;color:var(--text-1)}
+.group__body{padding:var(--sp-1) var(--sp-4) var(--sp-4)}
+.group__note{margin-top:var(--sp-2);font-size:12px;color:var(--text-2)}
+.map{display:flex;align-items:center;gap:var(--sp-3);min-height:36px;padding:var(--sp-1) var(--sp-4)}
+.map__id{flex-shrink:0;width:64px}
+.map__acct{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:var(--sp-1)}
+.map__email{max-width:100%;font-size:12px;color:var(--text-0);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.actions{display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-3) var(--sp-4);border-top:1px solid var(--hairline);background:var(--pane)}
+.actions__meta{font-size:11px;color:var(--text-2)}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-check" viewBox="0 0 14 14"><path d="M3 7.5l2.5 2.5L11 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-save" viewBox="0 0 14 14"><path d="M7 2.5v6M4.5 6L7 8.5 9.5 6M3 11h8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 14 14"><path d="M7 3v8M3 7h8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 14 14"><path d="M2.5 4.5h9M2.5 9.5h9" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="5" cy="4.5" r="1.5" style="fill:var(--pane)" stroke="currentColor" stroke-width="1.4"/><circle cx="9" cy="9.5" r="1.5" style="fill:var(--pane)" stroke="currentColor" stroke-width="1.4"/></symbol>
+  <symbol id="i-back" viewBox="0 0 14 14"><path d="M8.5 3.5L5 7l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+
+<main class="page">
+  <h1 class="page__title">Variant C: Command palette</h1>
+  <p class="page__desc">Keyboard-first. The popup opens with focus in a 28px filter field and the keyboard cursor already on the most recently used other account, so <kbd>↵</kbd> alone flips back and forth between the two accounts Jakub uses most. Number keys <kbd>1</kbd>–<kbd>9</kbd> switch straight away while the filter is empty (numbers stay fixed, they never reorder). Typing filters accounts and actions together. <kbd>esc</kbd> clears the filter, then closes. The active account is marked with an accent check plus an "Active" chip and gets no stripe. The only stripe is the keyboard cursor, so "where ↵ goes" and "what is active" never look the same. A "This tab" strip shows up only when the current tab is an artifact. It holds the Undo after an auto-switch, or the confirm in Ask mode. A one-line status bar at the bottom carries the auto-switch mode (Auto / Ask / Off) and the last auto-switch event. One filled-accent element at most per screen, and only where a decision is waiting.</p>
+
+  <div class="frames">
+
+    <!-- 1. Normal -->
+    <section class="frame" aria-label="State 1">
+      <p class="frame__cap">1 · Normal, 3 accounts, cursor on last used other account</p>
+      <div class="popup">
+        <div class="bar"><div class="field">
+          <label class="sr-only" for="f1">Switch account</label>
+          <input id="f1" class="input is-focus" type="text" placeholder="Filter accounts and actions" autocomplete="off">
+        </div></div>
+        <div class="sec"><span>Accounts</span><span class="sec__meta">3</span></div>
+        <ul class="list">
+          <li><div class="row is-active" aria-current="true">
+            <span class="row__lead"><svg width="14" height="14" aria-hidden="true"><use href="#i-check"/></svg></span>
+            <span class="row__main">
+              <span class="row__l1"><span class="row__title">ucet1@example.com</span></span>
+              <span class="row__meta"><span class="row__orgs">Neumie</span><span class="chip chip-blue">Active</span></span>
+            </span>
+            <span class="row__key" aria-hidden="true">1</span>
+          </div></li>
+          <li><button class="row is-cursor" type="button" aria-keyshortcuts="2">
+            <span class="row__lead"></span>
+            <span class="row__main">
+              <span class="row__l1"><span class="row__title">jakub@contember.com</span><span class="row__time">3h</span></span>
+              <span class="row__meta"><span class="row__orgs">Contember · Personal</span></span>
+            </span>
+            <span class="row__key" aria-hidden="true">2</span>
+          </button></li>
+          <li><button class="row" type="button" aria-keyshortcuts="3">
+            <span class="row__lead"></span>
+            <span class="row__main">
+              <span class="row__l1"><span class="row__title">jakub.neumann@gmail.com</span><span class="row__time">5d</span></span>
+              <span class="row__meta"><span class="row__orgs">Personal</span></span>
+            </span>
+            <span class="row__key" aria-hidden="true">3</span>
+          </button></li>
+        </ul>
+        <div class="sec sec--rule"><span>Actions</span></div>
+        <ul class="list">
+          <li><button class="row row--action" type="button"><span class="row__lead"><svg width="14" height="14" aria-hidden="true"><use href="#i-save"/></svg></span><span class="row__main"><span class="row__title">Save current account</span></span></button></li>
+          <li><button class="row row--action" type="button"><span class="row__lead"><svg width="14" height="14" aria-hidden="true"><use href="#i-plus"/></svg></span><span class="row__main"><span class="row__title">Add account</span></span></button></li>
+          <li><button class="row row--action" type="button"><span class="row__lead"><svg width="14" height="14" aria-hidden="true"><use href="#i-sliders"/></svg></span><span class="row__main"><span class="row__title">Auto-switch settings</span></span></button></li>
+        </ul>
+        <div class="hints">
+          <span><kbd>↑</kbd><kbd>↓</kbd> pick</span>
+          <span><kbd>↵</kbd> switch</span>
+          <span><kbd>1–3</kbd> jump</span>
+          <span><kbd>esc</kbd> close</span>
+        </div>
+        <div class="status">
+          <div class="status__l1">
+            <span class="status__label" id="m1">Auto-switch</span>
+            <div class="seg seg--compact" role="radiogroup" aria-labelledby="m1">
+              <button class="seg__opt" type="button" role="radio" aria-checked="true" tabindex="0">Auto</button>
+              <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Ask</button>
+              <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Off</button>
+            </div>
+            <span class="spacer"></span>
+            <button class="btn btn--sm btn--ghost" type="button">4 mappings</button>
+          </div>
+          <p class="status__event">Last: artifact 7f3c…e19a → jakub@contember.com · 2h</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. Auto-switched -->
+    <section class="frame" aria-label="State 2">
+      <p class="frame__cap">2 · Artifact tab, auto-switched just now, Undo in "This tab"</p>
+      <div class="popup">
+        <div class="bar"><div class="field">
+          <label class="sr-only" for="f2">Switch account</label>
+          <input id="f2" class="input is-focus" type="text" placeholder="Filter accounts and actions" autocomplete="off">
+        </div></div>
+        <section class="ctx" aria-label="This tab" role="status" aria-live="polite">
+          <div class="ctx__l1"><span class="ctx__label">This tab</span><span class="mono">artifact 7f3c…e19a</span></div>
+          <div class="ctx__msg">
+            <span>Switched from ucet1@example.com just now, opens with <b>jakub@contember.com</b>.</span>
+            <button class="btn btn--sm btn--quiet" type="button">Undo</button>
+          </div>
+        </section>
+        <div class="sec"><span>Accounts</span><span class="sec__meta">3</span></div>
+        <ul class="list">
+          <li><button class="row is-cursor" type="button" aria-keyshortcuts="1">
+            <span class="row__lead"></span>
+            <span class="row__main">
+              <span class="row__l1"><span class="row__title">ucet1@example.com</span><span class="row__time">now</span></span>
+              <span class="row__meta"><span class="row__orgs">Neumie</span></span>
+            </span>
+            <span class="row__key" aria-hidden="true">1</span>
+          </button></li>
+          <li><div class="row is-active" aria-current="true">
+            <span class="row__lead"><svg width="14" height="14" aria-hidden="true"><use href="#i-check"/></svg></span>
+            <span class="row__main">
+              <span class="row__l1"><span class="row__title">jakub@contember.com</span></span>
+              <span class="row__meta"><span class="row__orgs">Contember · Personal</span><span class="chip chip-blue">Active</span></span>
+            </span>
+            <span class="row__key" aria-hidden="true">2</span>
+          </div></li>
+          <li><button class="row" type="button" aria-keyshortcuts="3">
+            <span class="row__lead"></span>
+            <span class="row__main">
+              <span class="row__l1"><span class="row__title">jakub.neumann@gmail.com</span><span class="row__time">5d</span></span>
+              <span class="row__meta"><span class="row__orgs">Personal</span></span>
+            </span>
+            <span class="row__key" aria-hidden="true">3</span>
+          </button></li>
+        </ul>
+        <div class="hints">
+          <span><kbd>↵</kbd> switch</span>
+          <span><kbd>u</kbd> undo</span>
+          <span><kbd>1–3</kbd> jump</span>
+          <span><kbd>esc</kbd> close</span>
+        </div>
+        <div class="status">
+          <div class="status__l1">
+            <span class="status__label" id="m2">Auto-switch</span>
+            <div class="seg seg--compact" role="radiogroup" aria-labelledby="m2">
+              <button class="seg__opt" type="button" role="radio" aria-checked="true" tabindex="0">Auto</button>
+              <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Ask</button>
+              <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Off</button>
+            </div>
+            <span class="spacer"></span>
+            <button class="btn btn--sm btn--ghost" type="button">4 mappings</button>
+          </div>
+          <p class="status__event">Last: artifact 7f3c…e19a → jakub@contember.com · now</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Ask -->
+    <section class="frame" aria-label="State 3">
+      <p class="frame__cap">3 · Ask mode, artifact needs another account</p>
+      <div class="popup">
+        <div class="bar"><div class="field">
+          <label class="sr-only" for="f3">Switch account</label>
+          <input id="f3" class="input is-focus" type="text" placeholder="Filter accounts and actions" autocomplete="off">
+        </div></div>
+        <section class="ctx" aria-label="This tab">
+          <div class="ctx__l1"><span class="ctx__label">This tab</span><span class="mono">artifact b81d…04c2</span></div>
+          <div class="ctx__msg"><span>Opens with <b>jakub@contember.com</b>. The active account can't open it.</span></div>
+          <div class="ctx__actions">
+            <button class="btn btn--primary" type="button">Switch and reload</button>
+            <button class="btn btn--quiet" type="button">Not now</button>
+          </div>
+        </section>
+        <div class="sec"><span>Accounts</span><span class="sec__meta">3</span></div>
+        <ul class="list">
+          <li><div class="row is-active" aria-current="true">
+            <span class="row__lead"><svg width="14" height="14" aria-hidden="true"><use href="#i-check"/></svg></span>
+            <span class="row__main">
+              <span class="row__l1"><span class="row__title">ucet1@example.com</span></span>
+              <span class="row__meta"><span class="row__orgs">Neumie</span><span class="chip chip-blue">Active</span></span>
+            </span>
+            <span class="row__key" aria-hidden="true">1</span>
+          </div></li>
+          <li><button class="row is-cursor" type="button" aria-keyshortcuts="2">
+            <span class="row__lead"></span>
+            <span class="row__main">
+              <span class="row__l1"><span class="row__title">jakub@contember.com</span><span class="row__time">3h</span></span>
+              <span class="row__meta"><span class="row__orgs">Contember · Personal</span></span>
+            </span>
+            <span class="row__key" aria-hidden="true">2</span>
+          </button></li>
+          <li><button class="row" type="button" aria-keyshortcuts="3">
+            <span class="row__lead"></span>
+            <span class="row__main">
+              <span class="row__l1"><span class="row__title">jakub.neumann@gmail.com</span><span class="row__time">5d</span></span>
+              <span class="row__meta"><span class="row__orgs">Personal</span></span>
+            </span>
+            <span class="row__key" aria-hidden="true">3</span>
+          </button></li>
+        </ul>
+        <div class="hints">
+          <span><kbd>↵</kbd> switch and reload</span>
+          <span><kbd>esc</kbd> not now</span>
+        </div>
+        <div class="status">
+          <div class="status__l1">
+            <span class="status__label" id="m3">Auto-switch</span>
+            <div class="seg seg--compact" role="radiogroup" aria-labelledby="m3">
+              <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Auto</button>
+              <button class="seg__opt" type="button" role="radio" aria-checked="true" tabindex="0">Ask</button>
+              <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Off</button>
+            </div>
+            <span class="spacer"></span>
+            <button class="btn btn--sm btn--ghost" type="button">4 mappings</button>
+          </div>
+          <p class="status__event">Waiting: artifact b81d…04c2 needs jakub@contember.com</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Expired -->
+    <section class="frame" aria-label="State 4">
+      <p class="frame__cap">4 · Session expired, cursor on it: ↵ means log in again</p>
+      <div class="popup">
+        <div class="bar"><div class="field">
+          <label class="sr-only" for="f4">Switch account</label>
+          <input id="f4" class="input is-focus" type="text" placeholder="Filter accounts and actions" autocomplete="off">
+        </div></div>
+        <div class="sec"><span>Accounts</span><span class="sec__meta">3</span></div>
+        <ul class="list">
+          <li><div class="row is-active" aria-current="true">
+            <span class="row__lead"><svg width="14" height="14" aria-hidden="true"><use href="#i-check"/></svg></span>
+            <span class="row__main">
+              <span class="row__l1"><span class="row__title">ucet1@example.com</span></span>
+              <span class="row__meta"><span class="row__orgs">Neumie</span><span class="chip chip-blue">Active</span></span>
+            </span>
+            <span class="row__key" aria-hidden="true">1</span>
+          </div></li>
+          <li><button class="row" type="button" aria-keyshortcuts="2">
+            <span class="row__lead"></span>
+            <span class="row__main">
+              <span class="row__l1"><span class="row__title">jakub@contember.com</span><span class="row__time">3h</span></span>
+              <span class="row__meta"><span class="row__orgs">Contember · Personal</span></span>
+            </span>
+            <span class="row__key" aria-hidden="true">2</span>
+          </button></li>
+          <li><button class="row is-cursor" type="button" aria-keyshortcuts="3" aria-label="jakub.neumann@gmail.com, session expired, log in again">
+            <span class="row__lead"></span>
+            <span class="row__main">
+              <span class="row__l1"><span class="row__title row__title--dim">jakub.neumann@gmail.com</span><span class="row__time">12d</span></span>
+              <span class="row__meta"><span class="row__orgs">Personal</span><span class="chip chip-amber">Session expired</span></span>
+            </span>
+            <span class="row__key" aria-hidden="true">3</span>
+          </button></li>
+        </ul>
+        <div class="sec sec--rule"><span>Actions</span></div>
+        <ul class="list">
+          <li><button class="row row--action" type="button"><span class="row__lead"><svg width="14" height="14" aria-hidden="true"><use href="#i-save"/></svg></span><span class="row__main"><span class="row__title">Save current account</span></span></button></li>
+          <li><button class="row row--action" type="button"><span class="row__lead"><svg width="14" height="14" aria-hidden="true"><use href="#i-plus"/></svg></span><span class="row__main"><span class="row__title">Add account</span></span></button></li>
+          <li><button class="row row--action" type="button"><span class="row__lead"><svg width="14" height="14" aria-hidden="true"><use href="#i-sliders"/></svg></span><span class="row__main"><span class="row__title">Auto-switch settings</span></span></button></li>
+        </ul>
+        <div class="hints">
+          <span><kbd>↵</kbd> log in again, then save it here</span>
+        </div>
+        <div class="status">
+          <div class="status__l1">
+            <span class="status__label" id="m4">Auto-switch</span>
+            <div class="seg seg--compact" role="radiogroup" aria-labelledby="m4">
+              <button class="seg__opt" type="button" role="radio" aria-checked="true" tabindex="0">Auto</button>
+              <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Ask</button>
+              <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Off</button>
+            </div>
+            <span class="spacer"></span>
+            <button class="btn btn--sm btn--ghost" type="button">4 mappings</button>
+          </div>
+          <p class="status__event">Last: artifact 7f3c…e19a → jakub@contember.com · 2h</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Empty -->
+    <section class="frame" aria-label="State 5">
+      <p class="frame__cap">5 · Empty, no accounts saved</p>
+      <div class="popup">
+        <div class="bar"><div class="field">
+          <label class="sr-only" for="f5">Switch account</label>
+          <input id="f5" class="input" type="text" placeholder="Filter accounts and actions" autocomplete="off" disabled>
+        </div></div>
+        <div class="empty">
+          <p class="empty__title">No accounts saved</p>
+          <p class="empty__detail">Log in on claude.ai, then save it here.</p>
+          <button class="btn btn--primary empty__action" type="button">Save current account</button>
+          <button class="btn btn--sm btn--ghost empty__alt" type="button">Open claude.ai login</button>
+        </div>
+        <div class="status">
+          <div class="status__l1">
+            <span class="status__label" id="m5">Auto-switch</span>
+            <div class="seg seg--compact" role="radiogroup" aria-labelledby="m5">
+              <button class="seg__opt" type="button" role="radio" aria-checked="true" tabindex="0">Auto</button>
+              <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Ask</button>
+              <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Off</button>
+            </div>
+          </div>
+          <p class="status__event">No auto-switches yet</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Switching -->
+    <section class="frame" aria-label="State 6">
+      <p class="frame__cap">6 · Switching in progress</p>
+      <div class="popup">
+        <div class="bar"><div class="field">
+          <label class="sr-only" for="f6">Switch account</label>
+          <input id="f6" class="input" type="text" placeholder="Filter accounts and actions" autocomplete="off" disabled>
+        </div></div>
+        <div class="sec"><span>Accounts</span><span class="sec__meta">3</span></div>
+        <ul class="list">
+          <li><div class="row is-active" aria-current="true" style="opacity:.45">
+            <span class="row__lead"><svg width="14" height="14" aria-hidden="true"><use href="#i-check"/></svg></span>
+            <span class="row__main">
+              <span class="row__l1"><span class="row__title">ucet1@example.com</span></span>
+              <span class="row__meta"><span class="row__orgs">Neumie</span><span class="chip chip-blue">Active</span></span>
+            </span>
+            <span class="row__key" aria-hidden="true">1</span>
+          </div></li>
+          <li><button class="row is-cursor is-busy" type="button" aria-busy="true" aria-disabled="true">
+            <span class="row__lead"></span>
+            <span class="row__main">
+              <span class="row__l1"><span class="row__title">jakub@contember.com</span></span>
+              <span class="row__meta"><span class="row__orgs">Contember · Personal</span></span>
+            </span>
+            <span class="row__busy"><span class="dot bg-blue dot--pulse" aria-hidden="true"></span>Switching…</span>
+          </button></li>
+          <li><button class="row" type="button" disabled>
+            <span class="row__lead"></span>
+            <span class="row__main">
+              <span class="row__l1"><span class="row__title">jakub.neumann@gmail.com</span><span class="row__time">5d</span></span>
+              <span class="row__meta"><span class="row__orgs">Personal</span></span>
+            </span>
+            <span class="row__key" aria-hidden="true">3</span>
+          </button></li>
+        </ul>
+        <div class="hints" role="status" aria-live="polite">
+          <span>Swapping session, reloading 2 claude.ai tabs</span>
+        </div>
+        <div class="status">
+          <div class="status__l1">
+            <span class="status__label" id="m6">Auto-switch</span>
+            <div class="seg seg--compact" role="radiogroup" aria-labelledby="m6">
+              <button class="seg__opt" type="button" role="radio" aria-checked="true" tabindex="0">Auto</button>
+              <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Ask</button>
+              <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Off</button>
+            </div>
+            <span class="spacer"></span>
+            <button class="btn btn--sm btn--ghost" type="button">4 mappings</button>
+          </div>
+          <p class="status__event">Last: artifact 7f3c…e19a → jakub@contember.com · 2h</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. Filter typed -->
+    <section class="frame" aria-label="State 7">
+      <p class="frame__cap">7 · Filter typed "cont", one result under the cursor</p>
+      <div class="popup">
+        <div class="bar"><div class="field">
+          <label class="sr-only" for="f7">Switch account</label>
+          <input id="f7" class="input is-focus" type="text" placeholder="Filter accounts and actions" value="cont" autocomplete="off">
+          <span class="field__meta" aria-live="polite">1 of 3</span>
+        </div></div>
+        <div class="sec"><span>Accounts</span><span class="sec__meta">1 match</span></div>
+        <ul class="list is-filtered">
+          <li><button class="row is-cursor" type="button" aria-keyshortcuts="2">
+            <span class="row__lead"></span>
+            <span class="row__main">
+              <span class="row__l1"><span class="row__title">jakub@<mark>cont</mark>ember.com</span><span class="row__time">3h</span></span>
+              <span class="row__meta"><span class="row__orgs"><mark>Cont</mark>ember · Personal</span></span>
+            </span>
+            <span class="row__key" aria-hidden="true">2</span>
+          </button></li>
+        </ul>
+        <div class="sec sec--rule"><span>Actions</span><span class="sec__meta">No match</span></div>
+        <div class="hints">
+          <span><kbd>↵</kbd> switch to jakub@contember.com</span>
+          <span><kbd>esc</kbd> clear</span>
+        </div>
+        <div class="status">
+          <div class="status__l1">
+            <span class="status__label" id="m7">Auto-switch</span>
+            <div class="seg seg--compact" role="radiogroup" aria-labelledby="m7">
+              <button class="seg__opt" type="button" role="radio" aria-checked="true" tabindex="0">Auto</button>
+              <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Ask</button>
+              <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Off</button>
+            </div>
+            <span class="spacer"></span>
+            <button class="btn btn--sm btn--ghost" type="button">4 mappings</button>
+          </div>
+          <p class="status__event">Last: artifact 7f3c…e19a → jakub@contember.com · 2h</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. Settings / mappings -->
+    <section class="frame" aria-label="State 8">
+      <p class="frame__cap">8 · Settings and remembered artifacts</p>
+      <div class="popup">
+        <header class="push">
+          <button class="icon-btn" type="button" aria-label="Back to accounts"><svg width="14" height="14" aria-hidden="true"><use href="#i-back"/></svg></button>
+          <h2 class="push__title">Auto-switch</h2>
+        </header>
+        <section class="group" aria-labelledby="g1">
+          <div class="group__hdr" id="g1">When an artifact needs another account</div>
+          <div class="group__body">
+            <div class="seg" role="radiogroup" aria-labelledby="g1">
+              <button class="seg__opt" type="button" role="radio" aria-checked="true" tabindex="0">Auto</button>
+              <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Ask</button>
+              <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Off</button>
+            </div>
+            <p class="group__note">Auto switches and reloads the tab, with Undo here. Ask waits for your OK in this popup. Off leaves the tab alone.</p>
+          </div>
+        </section>
+        <section class="group" aria-labelledby="g2">
+          <div class="group__hdr"><span id="g2">Remembered artifacts</span><span class="sec__meta">4</span></div>
+          <ul class="list" style="padding-bottom:var(--sp-2)">
+            <li class="map"><span class="mono map__id">7f3c…e19a</span><span class="map__acct"><span class="map__email">jakub@contember.com</span></span><button class="btn btn--sm btn--ghost" type="button" aria-label="Forget artifact 7f3c…e19a">Forget</button></li>
+            <li class="map"><span class="mono map__id">b81d…04c2</span><span class="map__acct"><span class="map__email">jakub@contember.com</span></span><button class="btn btn--sm btn--ghost" type="button" aria-label="Forget artifact b81d…04c2">Forget</button></li>
+            <li class="map"><span class="mono map__id">2a90…7731</span><span class="map__acct"><span class="map__email">ucet1@example.com</span></span><button class="btn btn--sm btn--ghost" type="button" aria-label="Forget artifact 2a90…7731">Forget</button></li>
+            <li class="map"><span class="mono map__id">e05f…c8b6</span><span class="map__acct"><span class="map__email">jakub.neumann@gmail.com</span><span class="chip chip-amber">Session expired</span></span><button class="btn btn--sm btn--ghost" type="button" aria-label="Forget artifact e05f…c8b6">Forget</button></li>
+          </ul>
+        </section>
+        <footer class="actions">
+          <button class="btn btn--sm btn--danger" type="button">Forget all</button>
+          <span class="spacer"></span>
+          <span class="actions__meta">Saved after each working switch</span>
+        </footer>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<script>
+// Demo only: segmented controls are one tab stop, arrows or click move the selection.
+document.querySelectorAll('.seg').forEach(function (seg) {
+  var opts = Array.prototype.slice.call(seg.querySelectorAll('.seg__opt'));
+  function pick(i, focus) {
+    opts.forEach(function (o, j) { o.setAttribute('aria-checked', j === i); o.tabIndex = j === i ? 0 : -1; });
+    if (focus) opts[i].focus();
+  }
+  opts.forEach(function (o, i) {
+    o.addEventListener('click', function () { pick(i, false); });
+    o.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); pick((i + 1) % opts.length, true); }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); pick((i - 1 + opts.length) % opts.length, true); }
+    });
+  });
+});
+</script>
+</body>
+</html>

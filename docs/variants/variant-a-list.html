@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Variant A — Account list</title>
+<style>
+:root {
+  color-scheme: dark;
+
+  --chrome: #1a1c1f;
+  --pane:   #141517;
+  --well:   #0f1113;
+
+  --hairline:        rgba(255,255,255,0.07);
+  --hairline-strong: rgba(255,255,255,0.16);
+  --fill-subtle:     rgba(255,255,255,0.05);
+  --fill-raised:     rgba(255,255,255,0.09);
+  --fill-strong:     rgba(255,255,255,0.13);
+  --thumb:           rgba(255,255,255,0.14);
+  --thumb-hover:     rgba(255,255,255,0.24);
+  --scrim:           rgba(0,0,0,0.4);
+
+  --text-0: #ececee;
+  --text-1: #9a9ea6;
+  --text-2: #62666e;
+
+  --accent:            #4c9aff;
+  --accent-fill:       #3b82f6;
+  --accent-fill-hover: #5a9dff;
+  --on-accent:         #ffffff;
+  --success: #4ec98a;
+  --warn:    #e0b341;
+  --danger:  #f2585b;
+  --neutral: #8a8f98;
+
+  --accent-soft:  color-mix(in srgb, var(--accent) 15%, transparent);
+  --success-soft: color-mix(in srgb, var(--success) 15%, transparent);
+  --warn-soft:    color-mix(in srgb, var(--warn) 15%, transparent);
+  --danger-soft:  color-mix(in srgb, var(--danger) 15%, transparent);
+  --neutral-soft: color-mix(in srgb, var(--neutral) 15%, transparent);
+
+  --group-blue: #4c9aff; --group-purple: #c08ae0; --group-pink: #e477b5;
+  --group-red: #f2585b;  --group-orange: #e08a41; --group-green: #4ec98a;
+  --group-cyan: #54c6d6;
+
+  --radius-lg: 8px;
+  --radius-md: 6px;
+  --radius-sm: 4px;
+  --radius-full: 999px;
+
+  --shadow-1: 0 8px 24px rgba(0,0,0,0.35);
+  --shadow-2: 0 10px 30px -8px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.35);
+
+  --font-ui:   -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+  --font-mono: 'SF Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-8: 32px;
+
+  --motion-exit: 120ms;
+  --motion-state: 140ms;
+  --motion-enter: 150ms;
+  --ease: ease-out;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  background: var(--well);
+  color: var(--text-0);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+}
+ul { list-style: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.c-gray{color:var(--neutral)} .c-blue{color:var(--accent)} .c-green{color:var(--success)}
+.c-amber{color:var(--warn)}   .c-red{color:var(--danger)}
+.bg-gray{background:var(--neutral)} .bg-blue{background:var(--accent)} .bg-green{background:var(--success)}
+.bg-amber{background:var(--warn)}   .bg-red{background:var(--danger)}
+.chip-gray{color:var(--neutral);background:var(--neutral-soft)}
+.chip-blue{color:var(--accent);background:var(--accent-soft)}
+.chip-green{color:var(--success);background:var(--success-soft)}
+.chip-amber{color:var(--warn);background:var(--warn-soft)}
+.chip-red{color:var(--danger);background:var(--danger-soft)}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);clip-path:inset(50%);white-space:nowrap;border:0}
+
+/* ---------- Showcase page (not part of the popup) ---------- */
+.page{padding:var(--sp-8)}
+.page__title{font-size:17px;font-weight:600;line-height:1.3;color:var(--text-0)}
+.page__desc{margin-top:var(--sp-2);max-width:760px;font-size:13px;color:var(--text-1)}
+.frames{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var(--sp-8) var(--sp-6);margin-top:var(--sp-8)}
+.shot{width:342px}
+.shot__cap{font-size:12px;font-weight:500;color:var(--text-2)}
+.shot__note{min-height:32px;margin-bottom:var(--sp-2);font-size:11px;line-height:16px;color:var(--text-2)}
+
+/* Frame stands in for Chrome's popup window: 340px inner width */
+.popup{box-sizing:content-box;width:340px;position:relative;display:flex;flex-direction:column;background:var(--pane);border:1px solid var(--hairline);border-radius:var(--radius-lg);overflow:hidden}
+
+/* ---------- Header ---------- */
+.hdr{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 16px;border-bottom:1px solid var(--hairline)}
+.hdr__id{display:flex;align-items:center;gap:8px;min-width:0}
+.hdr__brand{color:var(--accent);font-size:13px;font-weight:600}
+.hdr__actions{position:relative;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.icon-btn{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0;border:0;border-radius:var(--radius-md);background:none;color:var(--text-2);font:inherit;font-size:16px;line-height:1;cursor:pointer;user-select:none;transition:background-color 140ms ease-out,color 140ms ease-out}
+.icon-btn:hover:not(:disabled),.icon-btn[aria-expanded="true"]{background:var(--fill-subtle);color:var(--text-0)}
+.icon-btn--28{width:28px;height:28px}
+.icon-btn:disabled{opacity:.45;cursor:default}
+
+/* Push header (sub-page) */
+.push{display:flex;align-items:center;gap:4px;height:36px;padding:0 16px 0 4px;border-bottom:1px solid var(--hairline)}
+.push__title{font-size:13px;font-weight:600;color:var(--text-0)}
+
+/* ---------- Overflow menu ---------- */
+.menu{position:absolute;top:calc(100% + 4px);right:0;z-index:10;min-width:200px;padding:4px;background:var(--chrome);border:1px solid var(--hairline);border-radius:var(--radius-lg);box-shadow:var(--shadow-1);animation:menu-in 120ms ease-out}
+.menu[hidden]{display:none}
+@keyframes menu-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.menu__item{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;height:28px;padding:0 8px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--text-0);font:400 13px var(--font-ui);letter-spacing:-0.01em;white-space:nowrap;text-align:left;cursor:pointer;user-select:none;transition:background-color 140ms ease-out}
+.menu__item:hover{background:var(--fill-subtle)}
+.menu__item:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.menu__meta{font-size:11px;color:var(--text-2);font-variant-numeric:tabular-nums}
+.menu__sep{height:1px;margin:4px 0;background:var(--hairline)}
+
+/* ---------- Artifact context notice ---------- */
+.ctx{padding:12px 16px 4px}
+.notice{display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:var(--radius-md);font-size:12px;line-height:1.5;word-break:break-word}
+.notice__text{flex:1;min-width:0}
+.notice__sub{display:block;color:var(--text-2)}
+.notice--warn .notice__sub{color:inherit;opacity:.8}
+.notice--error{color:var(--danger);background:var(--danger-soft)}
+.notice--warn{color:var(--warn);background:var(--warn-soft)}
+.notice--info{color:var(--text-1);background:var(--fill-subtle)}
+.notice__x{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0;border:0;border-radius:var(--radius-sm);background:transparent;color:inherit;font-size:16px;line-height:1;cursor:pointer;opacity:.6;user-select:none}
+.notice__x:hover{opacity:1}
+.notice .btn{background:var(--fill-raised);color:var(--text-0);flex-shrink:0}
+.notice .btn:hover{background:var(--fill-strong)}
+.notice__x:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--font-mono);font-size:11px}
+
+/* ---------- Account list ---------- */
+.list{display:flex;flex-direction:column;padding:4px 0}
+.row{display:flex;align-items:center;gap:12px;width:100%;min-height:52px;padding:8px 16px;border:0;border-radius:0;background:transparent;color:inherit;font:inherit;letter-spacing:inherit;text-align:left;cursor:pointer;transition:background-color 140ms ease-out}
+button.row{user-select:none}
+button.row:hover:not(:disabled){background:var(--fill-subtle)}
+button.row:active:not(:disabled){background:var(--fill-raised)}
+.row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.row.is-active{background:var(--fill-raised);cursor:default}
+.row:disabled{cursor:default}
+.row.is-dim{opacity:.45}
+.row--static{cursor:default}
+.row__main{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.row__l1{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.row__title{font-size:13px;font-weight:500;line-height:18px;color:var(--text-0);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:text}
+.row__time{flex-shrink:0;font-size:11px;color:var(--text-2);font-variant-numeric:tabular-nums}
+.row__state{flex-shrink:0;font-size:11px;font-weight:500;color:var(--text-1)}
+.row__act{flex-shrink:0;font-size:11px;font-weight:500;color:var(--accent)}
+.row__meta{display:flex;align-items:center;gap:8px;min-width:0;font-size:11px;line-height:16px;color:var(--text-2);white-space:nowrap}
+.row__org{overflow:hidden;text-overflow:ellipsis}
+.row__check{flex-shrink:0;display:inline-flex;width:14px;color:var(--accent)}
+.row__check--empty{visibility:hidden}
+
+.avatar{width:24px;height:24px;border-radius:50%;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;
+  color:var(--av,var(--group-blue));background:color-mix(in srgb,var(--av,var(--group-blue)) 15%,transparent)}
+
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dot--pulse{animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+.chip{display:inline-flex;align-items:center;flex-shrink:0;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:500;line-height:1.4;white-space:nowrap}
+
+/* ---------- Settings group ---------- */
+.group{border-top:1px solid var(--hairline);padding:20px 16px 16px}
+.group--flush{padding-bottom:0}
+.group__hdr{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:24px;margin-bottom:8px;font-size:12px;font-weight:600;color:var(--text-1)}
+.group__hint{margin-top:8px;font-size:11px;color:var(--text-2)}
+
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);height:28px;padding:2px;background:var(--fill-subtle);border-radius:var(--radius-md);box-shadow:inset 0 0 0 1px var(--hairline)}
+.seg__opt{height:24px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--text-1);font:600 12px var(--font-ui);letter-spacing:-0.01em;white-space:nowrap;cursor:pointer;user-select:none;transition:background-color 140ms ease-out,color 140ms ease-out}
+.seg__opt:hover:not([aria-checked="true"]):not(:disabled){color:var(--text-0)}
+.seg__opt[aria-checked="true"]{background:var(--fill-raised);color:var(--text-0)}
+.seg__opt:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.seg__opt:disabled{opacity:.45;cursor:default}
+
+/* ---------- Buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:28px;padding:0 12px;border:none;border-radius:var(--radius-md);font:600 12px var(--font-ui);letter-spacing:-0.01em;white-space:nowrap;cursor:pointer;user-select:none;transition:background-color 140ms ease-out,color 140ms ease-out}
+.btn--sm{height:24px;padding:0 10px}
+.btn--primary{background:var(--accent-fill);color:var(--on-accent)}
+.btn--primary:hover:not(:disabled){background:var(--accent-fill-hover)}
+.btn--quiet{background:var(--fill-raised);color:var(--text-0)}
+.btn--quiet:hover:not(:disabled){background:var(--fill-strong)}
+.btn--ghost{background:transparent;color:var(--text-2)}
+.btn--ghost:hover:not(:disabled){background:var(--fill-subtle);color:var(--text-0)}
+.btn--danger{background:var(--danger-soft);color:var(--danger)}
+.btn--danger:hover:not(:disabled){background:color-mix(in srgb,var(--danger) 22%,transparent)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn:focus-visible,.icon-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Pinned footer */
+.actions{display:flex;align-items:center;gap:8px;padding:12px 16px;border-top:1px solid var(--hairline);background:var(--pane)}
+.spacer{flex:1}
+
+/* ---------- Empty state ---------- */
+.empty{display:flex;flex-direction:column;align-items:center;text-align:center;padding:32px 16px}
+.empty__title{font-size:13px;font-weight:600;color:var(--text-1)}
+.empty__detail{margin-top:6px;font-size:12px;line-height:1.5;color:var(--text-2)}
+.empty__action{margin-top:16px}
+</style>
+</head>
+<body>
+<main class="page">
+  <h1 class="page__title">Variant A — Account list</h1>
+  <p class="page__desc">Classic and minimal. A flat list of saved accounts is the whole popup: monogram, email, org names, last used. The active account gets the raised stripe, an accent check and the word "Active"; every other healthy row is itself the switch button, so switching is one click with nothing revealed on hover. Artifact context (auto-switched, or asking first) appears as one inline notice above the list and points at a row in it. Auto-switch is a small Auto / Ask / Off group at the bottom, with remembered artifacts one push away. Every frame has exactly one filled button: normally "Add account" in the pinned footer; when claude.ai holds a session that is not saved yet, "Save current account" takes over and "Add account" drops to quiet.</p>
+
+  <div class="frames">
+
+    <!-- 1. Normal -->
+    <section class="shot" aria-label="State 1: normal">
+      <h2 class="shot__cap">1 · Normal, 3 accounts</h2>
+      <p class="shot__note">Current session is saved, so Add account is the one filled button.</p>
+      <div class="popup">
+        <header class="hdr">
+          <div class="hdr__id"><span class="hdr__brand">Claude accounts</span></div>
+          <div class="hdr__actions">
+            <button class="icon-btn" type="button" aria-label="More options" aria-haspopup="menu" aria-expanded="false"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3.5" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="12.5" cy="8" r="1.3"/></svg></button>
+          </div>
+        </header>
+        <ul class="list" aria-label="Saved accounts">
+          <li>
+            <div class="row is-active" aria-current="true">
+              <span class="avatar" style="--av:var(--group-purple)" aria-hidden="true">U3</span>
+              <span class="row__main">
+                <span class="row__l1"><span class="row__title">ucet1@example.com</span><span class="row__state">Active</span></span>
+                <span class="row__meta"><span class="row__org">Neumie</span></span>
+              </span>
+              <span class="row__check" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7.5l2.5 2.5L11 4.5"/></svg></span>
+            </div>
+          </li>
+          <li>
+            <button class="row" type="button" aria-label="Switch to jakub@contember.com, Contember and Personal, last used 3h ago">
+              <span class="avatar" style="--av:var(--group-orange)" aria-hidden="true">U2</span>
+              <span class="row__main">
+                <span class="row__l1"><span class="row__title">jakub@contember.com</span><span class="row__time">3h ago</span></span>
+                <span class="row__meta"><span class="row__org">Contember · Personal</span></span>
+              </span>
+              <span class="row__check row__check--empty" aria-hidden="true"></span>
+            </button>
+          </li>
+          <li>
+            <button class="row" type="button" aria-label="Switch to jakub.neumann@gmail.com, Personal, last used 2d ago">
+              <span class="avatar" style="--av:var(--group-green)" aria-hidden="true">G</span>
+              <span class="row__main">
+                <span class="row__l1"><span class="row__title">jakub.neumann@gmail.com</span><span class="row__time">2d ago</span></span>
+                <span class="row__meta"><span class="row__org">Personal</span></span>
+              </span>
+              <span class="row__check row__check--empty" aria-hidden="true"></span>
+            </button>
+          </li>
+        </ul>
+        <section class="group" aria-label="Auto-switch for artifacts">
+          <div class="group__hdr"><span>Auto-switch for artifacts</span><button class="btn btn--sm btn--ghost" type="button">3 remembered</button></div>
+          <div class="seg" role="radiogroup" aria-label="Auto-switch mode">
+            <button class="seg__opt" type="button" role="radio" aria-checked="true" tabindex="0">Auto</button>
+            <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Ask</button>
+            <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Off</button>
+          </div>
+          <p class="group__hint" data-hint>Switches to the account that can open an artifact, then reloads.</p>
+        </section>
+        <footer class="actions">
+          <button class="btn btn--primary" type="button">Add account</button>
+        </footer>
+      </div>
+    </section>
+
+    <!-- 2. Auto-switched -->
+    <section class="shot" aria-label="State 2: auto-switched">
+      <h2 class="shot__cap">2 · Artifact tab, just auto-switched</h2>
+      <p class="shot__note">Info notice names the tab's account, with one quiet Undo; that row is now active.</p>
+      <div class="popup">
+        <header class="hdr">
+          <div class="hdr__id"><span class="hdr__brand">Claude accounts</span></div>
+          <div class="hdr__actions">
+            <button class="icon-btn" type="button" aria-label="More options" aria-haspopup="menu" aria-expanded="false"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3.5" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="12.5" cy="8" r="1.3"/></svg></button>
+          </div>
+        </header>
+        <div class="ctx">
+          <output class="notice notice--info">
+            <span class="notice__text">This artifact opens with jakub@contember.com.<span class="notice__sub">Switched from ucet1@example.com automatically.</span></span>
+            <button class="btn btn--sm btn--quiet" type="button">Undo</button>
+          </output>
+        </div>
+        <ul class="list" aria-label="Saved accounts">
+          <li>
+            <div class="row is-active" aria-current="true">
+              <span class="avatar" style="--av:var(--group-orange)" aria-hidden="true">U2</span>
+              <span class="row__main">
+                <span class="row__l1"><span class="row__title">jakub@contember.com</span><span class="row__state">Active</span></span>
+                <span class="row__meta"><span class="row__org">Contember · Personal</span><span class="chip chip-blue">Opens this artifact</span></span>
+              </span>
+              <span class="row__check" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7.5l2.5 2.5L11 4.5"/></svg></span>
+            </div>
+          </li>
+          <li>
+            <button class="row" type="button" aria-label="Switch to ucet1@example.com, Neumie, last used just now">
+              <span class="avatar" style="--av:var(--group-purple)" aria-hidden="true">U3</span>
+              <span class="row__main">
+                <span class="row__l1"><span class="row__title">ucet1@example.com</span><span class="row__time">Just now</span></span>
+                <span class="row__meta"><span class="row__org">Neumie</span></span>
+              </span>
+              <span class="row__check row__check--empty" aria-hidden="true"></span>
+            </button>
+          </li>
+          <li>
+            <button class="row" type="button" aria-label="Switch to jakub.neumann@gmail.com, Personal, last used 2d ago">
+              <span class="avatar" style="--av:var(--group-green)" aria-hidden="true">G</span>
+              <span class="row__main">
+                <span class="row__l1"><span class="row__title">jakub.neumann@gmail.com</span><span class="row__time">2d ago</span></span>
+                <span class="row__meta"><span class="row__org">Personal</span></span>
+              </span>
+              <span class="row__check row__check--empty" aria-hidden="true"></span>
+            </button>
+          </li>
+        </ul>
+        <section class="group" aria-label="Auto-switch for artifacts">
+          <div class="group__hdr"><span>Auto-switch for artifacts</span><button class="btn btn--sm btn--ghost" type="button">4 remembered</button></div>
+          <div class="seg" role="radiogroup" aria-label="Auto-switch mode">
+            <button class="seg__opt" type="button" role="radio" aria-checked="true" tabindex="0">Auto</button>
+            <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Ask</button>
+            <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Off</button>
+          </div>
+          <p class="group__hint" data-hint>Switches to the account that can open an artifact, then reloads.</p>
+        </section>
+        <footer class="actions">
+          <button class="btn btn--primary" type="button">Add account</button>
+        </footer>
+      </div>
+    </section>
+
+    <!-- 3. Ask mode -->
+    <section class="shot" aria-label="State 3: ask before switching">
+      <h2 class="shot__cap">3 · Ask mode, artifact needs another account</h2>
+      <p class="shot__note">Warn notice asks; the row it names is tagged. Switch from the notice or the row.</p>
+      <div class="popup">
+        <header class="hdr">
+          <div class="hdr__id"><span class="hdr__brand">Claude accounts</span></div>
+          <div class="hdr__actions">
+            <button class="icon-btn" type="button" aria-label="More options" aria-haspopup="menu" aria-expanded="false"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3.5" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="12.5" cy="8" r="1.3"/></svg></button>
+          </div>
+        </header>
+        <div class="ctx">
+          <output class="notice notice--warn">
+            <span class="notice__text">Needs jakub@contember.com<span class="notice__sub">ucet1@example.com can't open this artifact.</span></span>
+            <button class="btn btn--sm btn--quiet" type="button">Switch</button>
+            <button class="notice__x" type="button" aria-label="Dismiss and stay on ucet1@example.com">×</button>
+          </output>
+        </div>
+        <ul class="list" aria-label="Saved accounts">
+          <li>
+            <div class="row is-active" aria-current="true">
+              <span class="avatar" style="--av:var(--group-purple)" aria-hidden="true">U3</span>
+              <span class="row__main">
+                <span class="row__l1"><span class="row__title">ucet1@example.com</span><span class="row__state">Active</span></span>
+                <span class="row__meta"><span class="row__org">Neumie</span></span>
+              </span>
+              <span class="row__check" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7.5l2.5 2.5L11 4.5"/></svg></span>
+            </div>
+          </li>
+          <li>
+            <button class="row" type="button" aria-label="Switch to jakub@contember.com, opens this artifact, Contember and Personal, last used 3h ago">
+              <span class="avatar" style="--av:var(--group-orange)" aria-hidden="true">U2</span>
+              <span class="row__main">
+                <span class="row__l1"><span class="row__title">jakub@contember.com</span><span class="row__time">3h ago</span></span>
+                <span class="row__meta"><span class="row__org">Contember · Personal</span><span class="chip chip-blue">Opens this artifact</span></span>
+              </span>
+              <span class="row__check row__check--empty" aria-hidden="true"></span>
+            </button>
+          </li>
+          <li>
+            <button class="row" type="button" aria-label="Switch to jakub.neumann@gmail.com, Personal, last used 2d ago">
+              <span class="avatar" style="--av:var(--group-green)" aria-hidden="true">G</span>
+              <span class="row__main">
+                <span class="row__l1"><span class="row__title">jakub.neumann@gmail.com</span><span class="row__time">2d ago</span></span>
+                <span class="row__meta"><span class="row__org">Personal</span></span>
+              </span>
+              <span class="row__check row__check--empty" aria-hidden="true"></span>
+            </button>
+          </li>
+        </ul>
+        <section class="group" aria-label="Auto-switch for artifacts">
+          <div class="group__hdr"><span>Auto-switch for artifacts</span><button class="btn btn--sm btn--ghost" type="button">3 remembered</button></div>
+          <div class="seg" role="radiogroup" aria-label="Auto-switch mode">
+            <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Auto</button>
+            <button class="seg__opt" type="button" role="radio" aria-checked="true" tabindex="0">Ask</button>
+            <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Off</button>
+          </div>
+          <p class="group__hint" data-hint>Asks here before switching to the account that can open an artifact.</p>
+        </section>
+        <footer class="actions">
+          <button class="btn btn--primary" type="button">Add account</button>
+        </footer>
+      </div>
+    </section>
+
+    <!-- 4. Session expired -->
+    <section class="shot" aria-label="State 4: session expired">
+      <h2 class="shot__cap">4 · One session expired</h2>
+      <p class="shot__note">Amber chip names the state; the row's action becomes "Log in again".</p>
+      <div class="popup">
+        <header class="hdr">
+          <div class="hdr__id"><span class="hdr__brand">Claude accounts</span></div>
+          <div class="hdr__actions">
+            <button class="icon-btn" type="button" aria-label="More options" aria-haspopup="menu" aria-expanded="false"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3.5" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="12.5" cy="8" r="1.3"/></svg></button>
+          </div>
+        </header>
+        <ul class="list" aria-label="Saved accounts">
+          <li>
+            <div class="row is-active" aria-current="true">
+              <span class="avatar" style="--av:var(--group-purple)" aria-hidden="true">U3</span>
+              <span class="row__main">
+                <span class="row__l1"><span class="row__title">ucet1@example.com</span><span class="row__state">Active</span></span>
+                <span class="row__meta"><span class="row__org">Neumie</span></span>
+              </span>
+              <span class="row__check" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7.5l2.5 2.5L11 4.5"/></svg></span>
+            </div>
+          </li>
+          <li>
+            <button class="row" type="button" aria-label="Switch to jakub@contember.com, Contember and Personal, last used 3h ago">
+              <span class="avatar" style="--av:var(--group-orange)" aria-hidden="true">U2</span>
+              <span class="row__main">
+                <span class="row__l1"><span class="row__title">jakub@contember.com</span><span class="row__time">3h ago</span></span>
+                <span class="row__meta"><span class="row__org">Contember · Personal</span></span>
+              </span>
+              <span class="row__check row__check--empty" aria-hidden="true"></span>
+            </button>
+          </li>
+          <li>
+            <button class="row" type="button" aria-label="jakub.neumann@gmail.com, session expired. Log in again on claude.ai">
+              <span class="avatar" style="--av:var(--group-green)" aria-hidden="true">G</span>
+              <span class="row__main">
+                <span class="row__l1"><span class="row__title">jakub.neumann@gmail.com</span><span class="row__act">Log in again</span></span>
+                <span class="row__meta"><span class="row__org">Personal</span><span class="chip chip-amber">Session expired</span></span>
+              </span>
+              <span class="row__check row__check--empty" aria-hidden="true"></span>
+            </button>
+          </li>
+        </ul>
+        <section class="group" aria-label="Auto-switch for artifacts">
+          <div class="group__hdr"><span>Auto-switch for artifacts</span><button class="btn btn--sm btn--ghost" type="button">3 remembered</button></div>
+          <div class="seg" role="radiogroup" aria-label="Auto-switch mode">
+            <button class="seg__opt" type="button" role="radio" aria-checked="true" tabindex="0">Auto</button>
+            <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Ask</button>
+            <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Off</button>
+          </div>
+          <p class="group__hint" data-hint>Switches to the account that can open an artifact, then reloads.</p>
+        </section>
+        <footer class="actions">
+          <button class="btn btn--primary" type="button">Add account</button>
+        </footer>
+      </div>
+    </section>
+
+    <!-- 5. Empty -->
+    <section class="shot" aria-label="State 5: empty">
+      <h2 class="shot__cap">5 · Empty, no accounts saved</h2>
+      <p class="shot__note">Names the state, then the way out. Settings and footer hidden until there is something to switch.</p>
+      <div class="popup">
+        <header class="hdr">
+          <div class="hdr__id"><span class="hdr__brand">Claude accounts</span></div>
+          <div class="hdr__actions">
+            <button class="icon-btn" type="button" aria-label="More options" aria-haspopup="menu" aria-expanded="false"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3.5" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="12.5" cy="8" r="1.3"/></svg></button>
+          </div>
+        </header>
+        <div class="empty">
+          <div class="empty__title">No accounts saved</div>
+          <div class="empty__detail">claude.ai is logged in as ucet1@example.com.<br>Save it here, then add your other accounts.</div>
+          <button class="btn btn--primary empty__action" type="button">Save current account</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Switching -->
+    <section class="shot" aria-label="State 6: switching in progress">
+      <h2 class="shot__cap">6 · Switching in progress</h2>
+      <p class="shot__note">Target row takes the stripe at once; live pulse dot plus text; everything else disabled.</p>
+      <div class="popup">
+        <header class="hdr">
+          <div class="hdr__id"><span class="hdr__brand">Claude accounts</span></div>
+          <div class="hdr__actions">
+            <button class="icon-btn" type="button" aria-label="More options" aria-haspopup="menu" aria-expanded="false" disabled><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3.5" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="12.5" cy="8" r="1.3"/></svg></button>
+          </div>
+        </header>
+        <ul class="list" aria-label="Saved accounts" aria-busy="true">
+          <li>
+            <button class="row is-dim" type="button" disabled aria-label="ucet1@example.com, Neumie">
+              <span class="avatar" style="--av:var(--group-purple)" aria-hidden="true">U3</span>
+              <span class="row__main">
+                <span class="row__l1"><span class="row__title">ucet1@example.com</span><span class="row__time">Just now</span></span>
+                <span class="row__meta"><span class="row__org">Neumie</span></span>
+              </span>
+              <span class="row__check row__check--empty" aria-hidden="true"></span>
+            </button>
+          </li>
+          <li>
+            <div class="row is-active" aria-current="true">
+              <span class="avatar" style="--av:var(--group-orange)" aria-hidden="true">U2</span>
+              <span class="row__main">
+                <span class="row__l1"><span class="row__title">jakub@contember.com</span></span>
+                <span class="row__meta" role="status" aria-live="polite"><span class="dot dot--pulse bg-blue" aria-hidden="true"></span><span class="row__org">Switching… reloading 2 claude.ai tabs</span></span>
+              </span>
+              <span class="row__check row__check--empty" aria-hidden="true"></span>
+            </div>
+          </li>
+          <li>
+            <button class="row is-dim" type="button" disabled aria-label="jakub.neumann@gmail.com, Personal">
+              <span class="avatar" style="--av:var(--group-green)" aria-hidden="true">G</span>
+              <span class="row__main">
+                <span class="row__l1"><span class="row__title">jakub.neumann@gmail.com</span><span class="row__time">2d ago</span></span>
+                <span class="row__meta"><span class="row__org">Personal</span></span>
+              </span>
+              <span class="row__check row__check--empty" aria-hidden="true"></span>
+            </button>
+          </li>
+        </ul>
+        <section class="group" aria-label="Auto-switch for artifacts">
+          <div class="group__hdr"><span>Auto-switch for artifacts</span><button class="btn btn--sm btn--ghost" type="button" disabled>3 remembered</button></div>
+          <div class="seg" role="radiogroup" aria-label="Auto-switch mode">
+            <button class="seg__opt" type="button" role="radio" aria-checked="true" tabindex="0" disabled>Auto</button>
+            <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1" disabled>Ask</button>
+            <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1" disabled>Off</button>
+          </div>
+          <p class="group__hint" data-hint>Switches to the account that can open an artifact, then reloads.</p>
+        </section>
+        <footer class="actions">
+          <button class="btn btn--primary" type="button" disabled>Add account</button>
+        </footer>
+      </div>
+    </section>
+
+    <!-- 7. Unsaved session -->
+    <section class="shot" aria-label="State 7: current session not saved">
+      <h2 class="shot__cap">7 · Logged in on claude.ai, not saved yet</h2>
+      <p class="shot__note">After "Add account" and a normal login. Save takes the filled button; Add account drops to quiet.</p>
+      <div class="popup">
+        <header class="hdr">
+          <div class="hdr__id"><span class="hdr__brand">Claude accounts</span></div>
+          <div class="hdr__actions">
+            <button class="icon-btn" type="button" aria-label="More options" aria-haspopup="menu" aria-expanded="false"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3.5" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="12.5" cy="8" r="1.3"/></svg></button>
+          </div>
+        </header>
+        <div class="ctx">
+          <output class="notice notice--info">
+            <span class="notice__text">claude.ai is logged in as jakub@contember.com.<span class="notice__sub">Not saved here yet. None of the saved accounts is active.</span></span>
+          </output>
+        </div>
+        <ul class="list" aria-label="Saved accounts">
+          <li>
+            <button class="row" type="button" aria-label="Switch to ucet1@example.com, Neumie, last used 4m ago">
+              <span class="avatar" style="--av:var(--group-purple)" aria-hidden="true">U3</span>
+              <span class="row__main">
+                <span class="row__l1"><span class="row__title">ucet1@example.com</span><span class="row__time">4m ago</span></span>
+                <span class="row__meta"><span class="row__org">Neumie</span></span>
+              </span>
+              <span class="row__check row__check--empty" aria-hidden="true"></span>
+            </button>
+          </li>
+          <li>
+            <button class="row" type="button" aria-label="Switch to jakub.neumann@gmail.com, Personal, last used 2d ago">
+              <span class="avatar" style="--av:var(--group-green)" aria-hidden="true">G</span>
+              <span class="row__main">
+                <span class="row__l1"><span class="row__title">jakub.neumann@gmail.com</span><span class="row__time">2d ago</span></span>
+                <span class="row__meta"><span class="row__org">Personal</span></span>
+              </span>
+              <span class="row__check row__check--empty" aria-hidden="true"></span>
+            </button>
+          </li>
+        </ul>
+        <section class="group" aria-label="Auto-switch for artifacts">
+          <div class="group__hdr"><span>Auto-switch for artifacts</span><button class="btn btn--sm btn--ghost" type="button">3 remembered</button></div>
+          <div class="seg" role="radiogroup" aria-label="Auto-switch mode">
+            <button class="seg__opt" type="button" role="radio" aria-checked="true" tabindex="0">Auto</button>
+            <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Ask</button>
+            <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Off</button>
+          </div>
+          <p class="group__hint" data-hint>Switches to the account that can open an artifact, then reloads.</p>
+        </section>
+        <footer class="actions">
+          <button class="btn btn--quiet" type="button">Add account</button>
+          <span class="spacer"></span>
+          <button class="btn btn--primary" type="button">Save current account</button>
+        </footer>
+      </div>
+    </section>
+
+    <!-- 8. Overflow menu -->
+    <section class="shot" aria-label="State 8: overflow menu open">
+      <h2 class="shot__cap">8 · Overflow menu</h2>
+      <p class="shot__note">Rare actions live here. Click the button to toggle.</p>
+      <div class="popup">
+        <header class="hdr">
+          <div class="hdr__id"><span class="hdr__brand">Claude accounts</span></div>
+          <div class="hdr__actions">
+            <button class="icon-btn" type="button" aria-label="More options" aria-haspopup="menu" aria-expanded="true" aria-controls="menu-8" data-menu-toggle><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3.5" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="12.5" cy="8" r="1.3"/></svg></button>
+            <div class="menu" id="menu-8" role="menu" aria-label="More options">
+              <button class="menu__item" type="button" role="menuitem">Remembered artifacts<span class="menu__meta">3</span></button>
+              <button class="menu__item" type="button" role="menuitem">Manage accounts…</button>
+              <div class="menu__sep" role="separator"></div>
+              <button class="menu__item" type="button" role="menuitem">Open claude.ai</button>
+            </div>
+          </div>
+        </header>
+        <ul class="list" aria-label="Saved accounts">
+          <li>
+            <div class="row is-active" aria-current="true">
+              <span class="avatar" style="--av:var(--group-purple)" aria-hidden="true">U3</span>
+              <span class="row__main">
+                <span class="row__l1"><span class="row__title">ucet1@example.com</span><span class="row__state">Active</span></span>
+                <span class="row__meta"><span class="row__org">Neumie</span></span>
+              </span>
+              <span class="row__check" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7.5l2.5 2.5L11 4.5"/></svg></span>
+            </div>
+          </li>
+          <li>
+            <button class="row" type="button" aria-label="Switch to jakub@contember.com, Contember and Personal, last used 3h ago">
+              <span class="avatar" style="--av:var(--group-orange)" aria-hidden="true">U2</span>
+              <span class="row__main">
+                <span class="row__l1"><span class="row__title">jakub@contember.com</span><span class="row__time">3h ago</span></span>
+                <span class="row__meta"><span class="row__org">Contember · Personal</span></span>
+              </span>
+              <span class="row__check row__check--empty" aria-hidden="true"></span>
+            </button>
+          </li>
+          <li>
+            <button class="row" type="button" aria-label="Switch to jakub.neumann@gmail.com, Personal, last used 2d ago">
+              <span class="avatar" style="--av:var(--group-green)" aria-hidden="true">G</span>
+              <span class="row__main">
+                <span class="row__l1"><span class="row__title">jakub.neumann@gmail.com</span><span class="row__time">2d ago</span></span>
+                <span class="row__meta"><span class="row__org">Personal</span></span>
+              </span>
+              <span class="row__check row__check--empty" aria-hidden="true"></span>
+            </button>
+          </li>
+        </ul>
+        <section class="group" aria-label="Auto-switch for artifacts">
+          <div class="group__hdr"><span>Auto-switch for artifacts</span><button class="btn btn--sm btn--ghost" type="button">3 remembered</button></div>
+          <div class="seg" role="radiogroup" aria-label="Auto-switch mode">
+            <button class="seg__opt" type="button" role="radio" aria-checked="true" tabindex="0">Auto</button>
+            <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Ask</button>
+            <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Off</button>
+          </div>
+          <p class="group__hint" data-hint>Switches to the account that can open an artifact, then reloads.</p>
+        </section>
+        <footer class="actions">
+          <button class="btn btn--primary" type="button">Add account</button>
+        </footer>
+      </div>
+    </section>
+
+    <!-- 9. Remembered artifacts (push sub-page) -->
+    <section class="shot" aria-label="State 9: remembered artifacts">
+      <h2 class="shot__cap">9 · Remembered artifacts (pushed from "3 remembered")</h2>
+      <p class="shot__note">Push sub-page. Each mapping has a visible Forget; Done is the one filled button.</p>
+      <div class="popup">
+        <header class="push">
+          <button class="icon-btn icon-btn--28" type="button" aria-label="Back to accounts"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M8.5 3L4.5 7l4 4"/></svg></button>
+          <h3 class="push__title">Remembered artifacts</h3>
+        </header>
+        <ul class="list" aria-label="Remembered artifacts">
+          <li>
+            <div class="row row--static">
+              <span class="row__main">
+                <span class="row__l1"><span class="row__title">Pricing calculator</span><span class="row__time">Today</span></span>
+                <span class="row__meta"><span class="mono">7f3c2a91</span><span class="row__org">jakub@contember.com</span></span>
+              </span>
+              <button class="btn btn--sm btn--ghost" type="button" aria-label="Forget Pricing calculator">Forget</button>
+            </div>
+          </li>
+          <li>
+            <div class="row row--static">
+              <span class="row__main">
+                <span class="row__l1"><span class="row__title">Q3 planning deck</span><span class="row__time">3d ago</span></span>
+                <span class="row__meta"><span class="mono">b81e04d7</span><span class="row__org">jakub@contember.com</span></span>
+              </span>
+              <button class="btn btn--sm btn--ghost" type="button" aria-label="Forget Q3 planning deck">Forget</button>
+            </div>
+          </li>
+          <li>
+            <div class="row row--static">
+              <span class="row__main">
+                <span class="row__l1"><span class="row__title">Untitled artifact</span><span class="row__time">12d ago</span></span>
+                <span class="row__meta"><span class="mono">e02f9c55</span><span class="row__org">ucet1@example.com</span></span>
+              </span>
+              <button class="btn btn--sm btn--ghost" type="button" aria-label="Forget untitled artifact e02f9c55">Forget</button>
+            </div>
+          </li>
+        </ul>
+        <section class="group" aria-label="Auto-switch mode">
+          <div class="group__hdr"><span>When an artifact needs another account</span></div>
+          <div class="seg" role="radiogroup" aria-label="Auto-switch mode">
+            <button class="seg__opt" type="button" role="radio" aria-checked="true" tabindex="0">Auto</button>
+            <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Ask</button>
+            <button class="seg__opt" type="button" role="radio" aria-checked="false" tabindex="-1">Off</button>
+          </div>
+          <p class="group__hint" data-hint>Switches to the account that can open an artifact, then reloads.</p>
+        </section>
+        <footer class="actions">
+          <button class="btn btn--danger" type="button">Forget all</button>
+          <span class="spacer"></span>
+          <button class="btn btn--primary" type="button">Done</button>
+        </footer>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<script>
+/* Demo only: segmented control (one tab stop, arrow keys) and the overflow menu toggle. */
+(function () {
+  var hints = {
+    Auto: 'Switches to the account that can open an artifact, then reloads.',
+    Ask: 'Asks here before switching to the account that can open an artifact.',
+    Off: 'Never switches on its own. Artifacts open with the active account.'
+  };
+  function select(seg, opt, focus) {
+    seg.querySelectorAll('.seg__opt').forEach(function (o) {
+      var on = o === opt;
+      o.setAttribute('aria-checked', on ? 'true' : 'false');
+      o.tabIndex = on ? 0 : -1;
+    });
+    if (focus) opt.focus();
+    var hint = seg.parentElement.querySelector('[data-hint]');
+    if (hint) hint.textContent = hints[opt.textContent.trim()];
+  }
+  document.querySelectorAll('.seg').forEach(function (seg) {
+    var opts = Array.prototype.slice.call(seg.querySelectorAll('.seg__opt'));
+    opts.forEach(function (opt, i) {
+      opt.addEventListener('click', function () { select(seg, opt, false); });
+      opt.addEventListener('keydown', function (e) {
+        var d = (e.key === 'ArrowRight' || e.key === 'ArrowDown') ? 1 : (e.key === 'ArrowLeft' || e.key === 'ArrowUp') ? -1 : 0;
+        if (!d) return;
+        e.preventDefault();
+        select(seg, opts[(i + d + opts.length) % opts.length], true);
+      });
+    });
+  });
+  document.querySelectorAll('[data-menu-toggle]').forEach(function (btn) {
+    var menu = document.getElementById(btn.getAttribute('aria-controls'));
+    btn.addEventListener('click', function () {
+      var open = btn.getAttribute('aria-expanded') !== 'true';
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      menu.hidden = !open;
+    });
+    menu.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { btn.setAttribute('aria-expanded', 'false'); menu.hidden = true; btn.focus(); }
+    });
+  });
+})();
+</script>
+</body>
+</html>
