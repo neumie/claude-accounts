@@ -7,6 +7,20 @@ Chrome rozšíření (MV3) pro přepínání mezi Jakubovými claude.ai účty.
 
 Stav k 13. 11. 2026: research hotový, nic se nestavělo. Než začneme stavět, je potřeba **jeden živý test** (sekce 3), který rozhodne, jestli je hlavní přístup vůbec proveditelný.
 
+**Účty** (od dispatchera, stejné jako v Okena AI proxy poolu):
+
+| E-mail | Orgy | Poznámka |
+|---|---|---|
+| `ucet3@example.com` | ? (zjistí `/api/account` při uložení) | |
+| `ucet2@example.com` | ? | |
+| `ucet1@example.com` | ? | je na něm i Claude Code CLI |
+
+Důsledky:
+- Jsou to **tři různé e-maily** → přepínání mezi nimi claude.ai samo neumí, rozšíření je potřeba pro všechny tři. Orgy pod každým e-mailem řeší claude.ai samo.
+- Claude Code jede přes proxy pool, takže artifact z Claude Code může patřit **kterémukoli** ze tří účtů [odhad]. Heuristika „nejdřív ucet1“ je proto slabá; víc váží cache a tichý probe (otázka 7). Lepší zdroj by byl záznam z Okena proxy, který účet obsloužil session, jež artifact publikovala (otázka 10).
+- Všechny tři účty používá i proxy → v žádném z nich nikdy „Log out of all sessions“ a rozšíření nesmí volat `/logout`.
+- Avatary ve variantách UI: iniciála z lokální části e-mailu (`U1`, `U2`, `U3`), protože doména je u všech stejná. Názvy orgů ve variantách jsou jen ilustrační.
+
 ---
 
 ## 1. Co jsem zjistil
@@ -43,7 +57,7 @@ Cookies claude.ai ve tvém profilu `Default` [live, jen názvy a flagy z `Cookie
 **Odhlášení ruší session na serveru** [src: support + [WZ]/[SB]]. Plyne z toho:
 - Rozšíření **nikdy nevolá `/logout`**. Přepnutí jen lokálně vymění cookies.
 - „Přidat účet“ = uložit aktuální session → lokálně smazat cookies → otevřít `claude.ai/login`. Neodhlašovat.
-- Pozor na „Log out of all sessions“ u ucet1@example.com: odhlásí i Claude Code CLI.
+- Pozor na „Log out of all sessions“ u kteréhokoli ze tří účtů: odhlásí i Claude Code CLI / proxy pool na tom účtu [odhad pro proxy].
 - **Past:** když claude.ai tab běží během výměny, SPA zjistí, že účet v cache nesedí s cookie, a samo zavolá `/logout?involuntary=1`. Tím zruší **novou** session [src: SB]. Proto: před výměnou všechny claude.ai taby „zaparkovat“ (přesměrovat na stránku rozšíření) a promazat stav vázaný na účet (localStorage/IndexedDB), kromě device-binding úložišť.
 
 ### 1.2 Jak se načítá artifact a jak poznat „nemám přístup“
@@ -90,7 +104,7 @@ Cookies claude.ai ve tvém profilu `Default` [live, jen názvy a flagy z `Cookie
    1. **cache** `artifactUuid → (accountUuid, orgUuid)`; když ukazuje na jiný účet, rovnou přepnout;
    2. **probe aktuálním účtem** (`/api/frame/<uuid>?org=…&bk=probe`); 200 → nic nedělat;
    3. 403 `org_mismatch` → `owner_org` dohledat v orgách uložených účtů. Jde o jiný org stejného účtu → nechat na claude.ai. Patří jinému účtu → přepnout;
-   4. 404 / `request_access` → **tichý probe ostatních účtů** přes DNR (pokud projde test), jinak **heuristika**: zkusit `ucet1@example.com` (tam publikuje Claude Code), pak ostatní, s viditelným přepnutím;
+   4. 404 / `request_access` → **tichý probe ostatních účtů** přes DNR (pokud projde test), jinak **viditelné zkoušení** zbylých dvou účtů (pořadí podle naposledy úspěšného účtu v cache; Claude Code přes proxy pool může publikovat z kteréhokoli). Při 3 účtech to jsou max. 2 pokusy;
    5. výsledek uložit do cache; negativní výsledek s TTL 10 min.
 3. Režim **Auto / Ask / Off**. Při Auto toast „Switched to … · Undo“ a badge s iniciálou aktivního účtu na ikoně.
 4. Přepíná jen na uložené účty a jen při top-level navigaci (ochrana proti tomu, aby libovolný web přepínal účty podstrčeným odkazem).
@@ -102,7 +116,7 @@ Cookies claude.ai ve tvém profilu `Default` [live, jen názvy a flagy z `Cookie
 - Každý účet ve vlastním Chrome profilu (přihlášený normálně, žádné kopírování session).
 - Rozšíření v každém profilu: odkaz na artifact se otevře ve špatném profilu → probe → otevřít ve správném profilu přes **native messaging host** (`open -na "Google Chrome" --args --profile-directory=… <url>`).
 - **Plus:** rozšíření neukládá žádné kredenciály (výrazně bezpečnější), DBSC nevadí.
-- **Mínus:** víc oken a profilů, instalace native hostu, „který účet otevře artifact“ se musí odhadnout bez tichého probe (cache + ucet1 jako první volba). Popup místo přepínání účtu „přepíná okno/profil“.
+- **Mínus:** víc oken a profilů, instalace native hostu, „který účet otevře artifact“ se musí odhadnout bez tichého probe (cache, jinak zkoušet profily postupně). Popup místo přepínání účtu „přepíná okno/profil“.
 
 ### Ještě levnější alternativa (doplněk, ne náhrada)
 
@@ -162,13 +176,14 @@ Lokální HTML soubory (záměrně ne claude.ai artifact). Každý ukazuje 6+ st
 
 1. **Živý test (sekce 3):** smím ho připravit (probe rozšíření) a ty ho projdeš? Ve druhém, testovacím Chrome profilu?
 2. **Varianta A vs. B:** pokud test projde, jdeme do A? Nebo chceš kvůli bezpečnosti rovnou B (profily, žádné uložené kredenciály)?
-3. **Účty:** které e-maily, které orgy pod nimi, jak se přihlašuješ (Google/SSO/magic link)? Je contember samostatný e-mail, nebo org pod stejným e-mailem? Pod stejným e-mailem to claude.ai umí samo.
+3. **Účty:** e-maily známe (`ucet3@`, `ucet2@`, `ucet1@example.com`). Zbývá: jak se do nich přihlašuješ (Google/SSO/magic link)? Je Contember org pod některým z nich?
 4. **Stack:** Solid + rollup jako Helm (doporučuju; brief říkal React + Vite, Helm ale reálně React nepoužívá)?
 5. **Výchozí režim auto-switche:** Auto, nebo Ask?
 6. **Šifrování uložených session heslem:** ano (jedno heslo po startu Chrome), nebo ne?
-7. **Tichý probe ostatních účtů na pozadí** (pokud technicky projde): povolit, nebo jen cache + heuristika „nejdřív ucet1“?
+7. **Tichý probe ostatních účtů na pozadí** (pokud technicky projde): povolit, nebo jen cache + viditelné zkoušení zbylých účtů?
 8. **UI varianta:** A, B, nebo C (případně co zkombinovat)? Jazyk UI angličtina (jako Helm)?
 9. **ToS:** bereš na vědomí šedou zónu kolem ukládání session tokenů?
+10. **Okena proxy jako zdroj:** umí (nebo může umět) Okena proxy říct, přes který účet běžela session, jež artifact publikovala? Pak by rozšíření vědělo správný účet bez zkoušení.
 
 ---
 
