@@ -1,6 +1,6 @@
 import type { ProbeReport } from './messages.ts'
 import type { ProbeResult } from './probe.ts'
-import type { Account } from './protocol.ts'
+import type { AccountInfo as Account } from './types.ts'
 
 /** Probe with the active org first, then the account's other orgs (claude.ai switches orgs itself). */
 export async function checkAccess(

@@ -29,19 +29,9 @@ for (const [input, file] of [
 	await bundle.close()
 }
 
-// Native host: one plain .mjs, so install-host can copy it out of ~/Documents
-// (macOS privacy protection blocks helpers Chrome starts from reading there).
-const hostPlugins = [
-	resolve({ extensions: ['.ts', '.js'], preferBuiltins: true }),
-	babel({ extensions: ['.ts'], babelHelpers: 'bundled', presets: [['@babel/preset-typescript', { allExtensions: true }]] }),
-]
-rmSync('dist-host', { recursive: true, force: true })
-const hostBundle = await rollup({ input: 'host/main.ts', plugins: hostPlugins, external: id => id.startsWith('node:') })
-await hostBundle.write({ file: 'dist-host/host.mjs', format: 'es' })
-await hostBundle.close()
-
 cpSync('src/manifest.json', 'dist/manifest.json')
 cpSync('src/popup/popup.html', 'dist/popup.html')
 cpSync('src/popup/popup.css', 'dist/popup.css')
+cpSync('src/switching.html', 'dist/switching.html')
 
-console.log('Extension built to dist/, native host to dist-host/')
+console.log('Extension built to dist/')

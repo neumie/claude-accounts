@@ -1,6 +1,6 @@
 // Messages inside the extension (content script / popup → background).
 
-import type { Account, ChromeProfile, Mode, RouteTarget, SharedState } from './protocol.ts'
+import type { AccountInfo, AccountView, CachedArtifact, Mode } from './types.ts'
 
 export type ProbeReport =
 	| { kind: 'access' }
@@ -8,34 +8,38 @@ export type ProbeReport =
 	| { kind: 'org_mismatch'; ownerOrg: string }
 
 export type ContentMessage =
-	| { kind: 'account'; account: Account | null }
-	| { kind: 'probe'; artifact: string; url: string; result: ProbeReport; freshTab: boolean }
-	| { kind: 'openElsewhere'; dir: string; url: string; closeTab: boolean }
+	| { kind: 'account'; account: AccountInfo | null; at: number }
+	| { kind: 'probe'; artifact: string; url: string; result: ProbeReport; at: number }
+	| { kind: 'switchFor'; uuid: string; url: string }
+
+export type Target = { uuid: string; email: string }
 
 export type ProbeReply =
 	| { action: 'none' }
-	| { action: 'routedHere'; from: string }
-	| { action: 'opened'; target: RouteTarget }
-	| { action: 'ask'; target: RouteTarget }
-	| { action: 'exhausted' }
+	/** The background is switching accounts; this page is about to be parked. */
+	| { action: 'switching'; target: Target }
+	| { action: 'routedHere'; from: string | null }
+	| { action: 'ask'; target: Target }
+	| { action: 'exhausted'; backTo: string | null }
 
 export type PopupMessage =
 	| { kind: 'popupState'; tabUrl: string | null }
-	| { kind: 'openProfile'; dir: string; url: string }
+	| { kind: 'switch'; uuid: string; url: string | null }
+	| { kind: 'save' }
+	| { kind: 'add' }
+	| { kind: 'remove'; uuid: string }
 	| { kind: 'setMode'; mode: Mode }
-	| { kind: 'setDir'; dir: string }
-	| { kind: 'detectDir' }
 	| { kind: 'forget'; artifact: string }
 
 export type PopupState = {
-	host: { ok: true } | { ok: false; error: string }
-	dir: string | null
-	me: Account | null
-	meKnown: boolean
-	chromeProfiles: ChromeProfile[]
-	state: SharedState | null
-	distDir: string | null
-	tab: { artifact: string; url: string } | null
+	accounts: AccountView[]
+	activeUuid: string | null
+	/** Signed in to claude.ai with an account that isn't saved yet. */
+	unsaved: AccountInfo | null
+	signedIn: boolean
+	mode: Mode
+	switching: boolean
+	tab: { tabId: number; artifact: string; url: string; cached: CachedArtifact | null } | null
 }
 
 export type Reply<T> = { ok: true; data: T } | { ok: false; error: string }

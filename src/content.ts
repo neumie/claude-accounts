@@ -1,14 +1,23 @@
-// Runs on claude.ai (top frame). Reads who is signed in, and on artifact
-// pages checks whether this account can open the artifact, the same way the
-// page itself does. Reads only the non-httpOnly lastActiveOrg cookie (an org
-// id); never writes cookies or page storage.
+// Runs on claude.ai (top frame, document_start).
+// 1. Right after an account switch, drops the page's cached account state before
+//    claude.ai's own scripts run (they would otherwise act as the old account).
+// 2. Reports who is signed in.
+// 3. On artifact pages, checks whether this account can open the artifact, the
+//    same way the page itself does, and lets the background route it.
+// Never reads session cookies (they are httpOnly); reads only the purge marker
+// and lastActiveOrg (an org id).
 
 import { parseArtifactUrl, shortUuid, type ArtifactRef } from './shared/artifact.ts'
-import type { ContentMessage, ProbeReply, Reply } from './shared/messages.ts'
 import { checkAccess } from './shared/access.ts'
+import type { ContentMessage, ProbeReply, Reply } from './shared/messages.ts'
 import { classifyProbe, parseAccount, probeUrl, type ProbeResult } from './shared/probe.ts'
-import type { Account } from './shared/protocol.ts'
+import { purgeMarker, purgeSiteData } from './shared/purge.ts'
+import type { AccountInfo } from './shared/types.ts'
 import { showBanner } from './banner.ts'
+
+// Must run first, synchronously, before any claude.ai script.
+const marker = purgeMarker(document.cookie)
+if (marker) purgeSiteData(marker, window.localStorage, window.sessionStorage, indexedDB, globalThis.caches)
 
 const HEADERS = { 'X-Frame-CP': 'go' }
 
@@ -24,7 +33,7 @@ async function readJson(res: Response): Promise<unknown> {
 }
 
 /** undefined = could not tell (challenge, network); null = signed out. */
-async function fetchAccount(): Promise<Account | null | undefined> {
+async function fetchAccount(): Promise<AccountInfo | null | undefined> {
 	try {
 		const res = await fetch('/api/account', { credentials: 'same-origin', cache: 'no-store' })
 		if (res.headers.get('cf-mitigated') === 'challenge') return undefined
@@ -57,17 +66,17 @@ function lastActiveOrg(): string | null {
 	return m?.[1]?.toLowerCase() ?? null
 }
 
-let accountPromise: Promise<Account | null | undefined> | null = null
+let accountPromise: Promise<AccountInfo | null | undefined> | null = null
 
-function account(): Promise<Account | null | undefined> {
-	accountPromise ??= fetchAccount().then(async a => {
-		if (a !== undefined) await send({ kind: 'account', account: a }).catch(() => undefined)
+function account(): Promise<AccountInfo | null | undefined> {
+	accountPromise ??= (async () => {
+		const at = Date.now()
+		const a = await fetchAccount()
+		if (a !== undefined) await send({ kind: 'account', account: a, at }).catch(() => undefined)
 		return a
-	})
+	})()
 	return accountPromise
 }
-
-const handled = new Set<string>()
 
 /** Reloads and back/forward (including restored tabs) never trigger routing. */
 function isRevisit(): boolean {
@@ -75,46 +84,53 @@ function isRevisit(): boolean {
 	return nav?.type === 'reload' || nav?.type === 'back_forward'
 }
 
-async function onUrl(href: string, freshTab: boolean): Promise<void> {
+const handled = new Set<string>()
+
+async function onUrl(href: string): Promise<void> {
 	const ref = parseArtifactUrl(href)
 	if (!ref || handled.has(ref.uuid)) return
 	handled.add(ref.uuid)
 	if (ref.shareKey) return // share links open for anyone with the key
+	const at = Date.now()
 	const me = await account()
-	if (me === undefined) return // couldn't tell who is signed in: do nothing
-	// Signed out here: no probe possible, but another profile may open it.
-	const result = me === null ? { kind: 'no_access' as const } : await checkAccess(org => probe(ref, org), lastActiveOrg(), me)
+	if (!me) return // signed out or unknown: nothing to compare against
+	const result = await checkAccess(org => probe(ref, org), lastActiveOrg(), me)
 	if (!result) return
 	let reply: ProbeReply
 	try {
-		reply = await send<ProbeReply>({ kind: 'probe', artifact: ref.uuid, url: href, result, freshTab })
+		reply = await send<ProbeReply>({ kind: 'probe', artifact: ref.uuid, url: href, result, at })
 	} catch {
 		return
 	}
 	render(reply, me, ref, href)
 }
 
-function render(reply: ProbeReply, me: Account | null, ref: ArtifactRef, href: string): void {
-	const who = me?.email ?? 'This profile'
+function render(reply: ProbeReply, me: AccountInfo, ref: ArtifactRef, href: string): void {
 	switch (reply.action) {
 		case 'none':
 			return
-		case 'routedHere':
-			showBanner({ tone: 'info', text: `Opened here: ${reply.from} can't open this artifact.`, autoHideMs: 6000 })
+		case 'switching':
+			showBanner({ tone: 'info', text: `${me.email} can't open this artifact. Switching to ${reply.target.email}…` })
 			return
-		case 'opened':
-			showBanner({ tone: 'info', text: `Opened in ${reply.target.email}'s Chrome profile. ${who} can't open it.` })
+		case 'routedHere':
+			showBanner({
+				tone: 'info',
+				text: reply.from
+					? `Switched to ${me.email}: ${reply.from} can't open this artifact.`
+					: `Switched to ${me.email}.`,
+				autoHideMs: 6000,
+			})
 			return
 		case 'ask':
 			showBanner({
 				tone: 'warn',
-				text: `${who} can't open this artifact. ${reply.target.email} might.`,
+				text: `${me.email} can't open this artifact. ${reply.target.email} can.`,
 				actions: [
 					{
-						label: `Open as ${reply.target.email}`,
+						label: `Switch to ${reply.target.email}`,
 						primary: true,
 						run: () =>
-							send({ kind: 'openElsewhere', dir: reply.target.dir, url: href, closeTab: false }).then(
+							send({ kind: 'switchFor', uuid: reply.target.uuid, url: href }).then(
 								() => true,
 								() => false,
 							),
@@ -124,21 +140,20 @@ function render(reply: ProbeReply, me: Account | null, ref: ArtifactRef, href: s
 			})
 			return
 		case 'exhausted':
-			showBanner({ tone: 'warn', text: `None of your Claude accounts can open artifact ${shortUuid(ref.uuid)}.` })
+			showBanner({ tone: 'warn', text: `None of your saved accounts can open artifact ${shortUuid(ref.uuid)}.` })
 			return
 	}
 }
 
 function start(): void {
-	const freshTab = history.length <= 1
 	void account()
-	if (!isRevisit()) void onUrl(location.href, freshTab)
+	if (!isRevisit()) void onUrl(location.href)
 	// In-app navigation (sidebar, links inside claude.ai) doesn't reload the content script.
 	const nav = (window as unknown as { navigation?: EventTarget }).navigation
-	nav?.addEventListener('navigatesuccess', () => void onUrl(location.href, false))
+	nav?.addEventListener('navigatesuccess', () => void onUrl(location.href))
 }
 
-// A prerendered page isn't the main frame yet: wait until the user actually lands on it.
+// A prerendered page isn't shown yet: wait until the user actually lands on it.
 const doc = document as Document & { prerendering?: boolean }
 if (doc.prerendering) document.addEventListener('prerenderingchange', () => start(), { once: true })
 else start()

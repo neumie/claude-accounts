@@ -1,8 +1,8 @@
-import { createResource, createSignal, For, Match, Show, Switch, type JSX } from 'solid-js'
+import { createResource, createSignal, For, Show, type JSX } from 'solid-js'
 import { shortUuid } from '../shared/artifact.ts'
 import { accountColor, initials } from '../shared/avatar.ts'
 import type { PopupMessage, PopupState, Reply } from '../shared/messages.ts'
-import { MODES, type Account, type ChromeProfile, type Mode, type ProfileEntry } from '../shared/protocol.ts'
+import { MODES, type AccountView, type Mode } from '../shared/types.ts'
 
 async function send<T>(msg: PopupMessage): Promise<T> {
 	const res = (await chrome.runtime.sendMessage(msg)) as Reply<T> | undefined
@@ -17,20 +17,14 @@ async function load(): Promise<PopupState> {
 
 const MODE_LABEL: Record<Mode, string> = { auto: 'Auto', ask: 'Ask', off: 'Off' }
 const MODE_HINT: Record<Mode, string> = {
-	auto: 'Artifact links this account can’t open move to the profile that can.',
-	ask: 'Artifact links this account can’t open show a prompt first.',
-	off: 'Artifact links are left alone.',
+	auto: 'An artifact the active account can’t open switches to the account that can.',
+	ask: 'An artifact the active account can’t open asks before switching.',
+	off: 'Artifact links never switch accounts.',
 }
 
 const Check = () => (
 	<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
 		<path d="M3 7.5l2.5 2.5L11 4.5" />
-	</svg>
-)
-
-const Back = () => (
-	<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-		<path d="M10 3.5L5.5 8l4.5 4.5" />
 	</svg>
 )
 
@@ -42,7 +36,7 @@ function Avatar(props: { email: string }): JSX.Element {
 	)
 }
 
-function orgNames(a: Account): string {
+function orgNames(a: { orgs: { name: string }[] }): string {
 	return a.orgs.map(o => o.name).filter(Boolean).join(' · ')
 }
 
@@ -57,194 +51,163 @@ function ago(ts: number): string {
 
 export function Popup(): JSX.Element {
 	const [data, { refetch }] = createResource(load)
-	const [page, setPage] = createSignal<'main' | 'add'>('main')
+	const [busy, setBusy] = createSignal<string | null>(null)
 	const [error, setError] = createSignal<string | null>(null)
-	const [busy, setBusy] = createSignal(false)
+	const [warning, setWarning] = createSignal<string | null>(null)
+	const [confirmRemove, setConfirmRemove] = createSignal<string | null>(null)
 
-	async function act(msg: PopupMessage, closeAfter = false): Promise<void> {
-		setBusy(true)
+	async function act(msg: PopupMessage, label: string, closeAfter = false): Promise<void> {
+		setBusy(label)
 		setError(null)
+		setWarning(null)
 		try {
-			await send(msg)
-			if (closeAfter) window.close()
+			const res = await send<{ warning?: string } | undefined>(msg)
+			if (res && typeof res === 'object' && 'warning' in res && res.warning) {
+				setWarning(res.warning)
+				await refetch()
+			} else if (closeAfter) window.close()
 			else await refetch()
 		} catch (err) {
 			setError(err instanceof Error ? err.message : String(err))
+			await refetch()
 		} finally {
-			setBusy(false)
+			setBusy(null)
 		}
+	}
+
+	const s = () => data()
+	const active = () => s()?.accounts.find(a => a.uuid === s()?.activeUuid)
+	const others = () =>
+		(s()?.accounts ?? [])
+			.filter(a => a.uuid !== s()?.activeUuid)
+			.sort((a, b) => b.lastUsedAt - a.lastUsedAt || a.email.localeCompare(b.email))
+	const tabOwner = () => {
+		const cached = s()?.tab?.cached
+		return cached ? s()?.accounts.find(a => a.uuid === cached.accountUuid) : undefined
+	}
+
+	function switchTo(a: AccountView): void {
+		void act({ kind: 'switch', uuid: a.uuid, url: s()?.tab?.url ?? null }, `Switching to ${a.email}…`, true)
 	}
 
 	return (
 		<div class="popup">
-			<Switch>
-				<Match when={page() === 'add'}>
-					<AddAccount distDir={data()?.distDir ?? null} onBack={() => setPage('main')} />
-				</Match>
-				<Match when={data.loading && !data()}>
-					<Header />
-					<p class="loading">Loading…</p>
-				</Match>
-				<Match when={data.error}>
-					<Header />
+			<header class="hdr">
+				<div class="hdr__id">
+					<span class="hdr__brand">Claude accounts</span>
+				</div>
+			</header>
+
+			<Show when={data.loading && !data()}>
+				<p class="loading">Loading…</p>
+			</Show>
+
+			<Show when={busy()}>
+				<div class="ctx">
+					<div class="notice notice--info">
+						<span class="dot bg-blue dot--pulse" style={{ 'margin-top': '6px' }} />
+						<span class="notice__text">
+							{busy()}
+							<span class="notice__sub">claude.ai tabs reload when it’s done.</span>
+						</span>
+					</div>
+				</div>
+			</Show>
+
+			<Show when={error() ?? (data.error ? String(data.error) : null)}>
+				{msg => (
 					<div class="ctx">
 						<div class="notice notice--error">
-							<span class="notice__text">{String(data.error)}</span>
+							<span class="notice__text">{msg()}</span>
 						</div>
 					</div>
-				</Match>
-				<Match when={data()?.host.ok === false && data()}>
-					{s => <HostMissing error={(s().host as { error: string }).error} onRetry={() => void refetch()} />}
-				</Match>
-				<Match when={data()?.dir === null && data()}>
-					{s => (
-						<PickProfile
-							profiles={s().chromeProfiles}
-							busy={busy()}
-							onDetect={() => void act({ kind: 'detectDir' })}
-							onPick={dir => void act({ kind: 'setDir', dir })}
-						/>
-					)}
-				</Match>
-				<Match when={data()}>
-					{s => (
-						<Main
-							s={s()}
-							busy={busy()}
-							error={error()}
-							onOpen={(dir, url) => void act({ kind: 'openProfile', dir, url }, true)}
-							onMode={mode => void act({ kind: 'setMode', mode })}
-							onForget={artifact => void act({ kind: 'forget', artifact })}
-							onAdd={() => setPage('add')}
-						/>
-					)}
-				</Match>
-			</Switch>
-		</div>
-	)
-}
+				)}
+			</Show>
 
-function Header(props: { children?: JSX.Element }): JSX.Element {
-	return (
-		<header class="hdr">
-			<div class="hdr__id">
-				<span class="hdr__brand">Claude accounts</span>
-			</div>
-			<div class="hdr__actions">{props.children}</div>
-		</header>
-	)
-}
+			<Show when={warning()}>
+				{msg => (
+					<div class="ctx">
+						<div class="notice notice--warn">
+							<span class="notice__text">{msg()}</span>
+						</div>
+					</div>
+				)}
+			</Show>
 
-type Row = { profile: ChromeProfile; entry: ProfileEntry | undefined }
-
-function Main(props: {
-	s: PopupState
-	busy: boolean
-	error: string | null
-	onOpen: (dir: string, url: string) => void
-	onMode: (mode: Mode) => void
-	onForget: (artifact: string) => void
-	onAdd: () => void
-}): JSX.Element {
-	const state = () => props.s.state
-	const here = () => props.s.dir
-	const rows = (): Row[] =>
-		props.s.chromeProfiles
-			.map(profile => ({ profile, entry: state()?.profiles[profile.dir] }))
-			.sort((a, b) => {
-				if (a.profile.dir === here()) return -1
-				if (b.profile.dir === here()) return 1
-				const ea = a.entry?.account?.email
-				const eb = b.entry?.account?.email
-				if (ea && !eb) return -1
-				if (eb && !ea) return 1
-				return (ea ?? a.profile.name).localeCompare(eb ?? b.profile.name)
-			})
-	const signedIn = () => rows().filter(r => r.entry?.account)
-	const others = () => rows().filter(r => !r.entry?.account)
-
-	const tabInfo = () => {
-		const tab = props.s.tab
-		if (!tab) return null
-		const cached = state()?.artifacts[tab.artifact]
-		const owner = cached ? Object.values(state()?.profiles ?? {}).find(p => p.account?.uuid === cached.accountUuid) : undefined
-		return { tab, cached, owner }
-	}
-
-	return (
-		<>
-			<Header>
-				<button class="icon-btn" type="button" aria-label="Add account" title="Add account" onClick={() => props.onAdd()}>
-					+
-				</button>
-			</Header>
-
-			<Show when={!props.s.me}>
+			<Show when={s()?.switching && !busy()}>
 				<div class="ctx">
-					<div class="notice notice--warn">
-						<span class="notice__text">
-							{props.s.meKnown ? 'This profile isn’t signed in to claude.ai.' : 'Open claude.ai once in this profile.'}
-							<span class="notice__sub">
-								{props.s.meKnown
-									? 'Sign in once; the extension picks the account up on its own.'
-									: 'The extension learns which account is signed in here from the first claude.ai page.'}
+					<div class="notice notice--info">
+						<span class="notice__text">Switching accounts…</span>
+					</div>
+				</div>
+			</Show>
+
+			<Show when={s()?.unsaved}>
+				{u => (
+					<div class="ctx">
+						<div class="notice notice--warn">
+							<span class="notice__text">
+								Signed in as {u().email}
+								<span class="notice__sub">Not saved yet. Save it to switch back to it later.</span>
 							</span>
+							<button
+								class="btn btn--primary btn--sm"
+								type="button"
+								disabled={!!busy()}
+								onClick={() => void act({ kind: 'save' }, 'Saving…')}
+							>
+								Save
+							</button>
+						</div>
+					</div>
+				)}
+			</Show>
+
+			<Show when={s() && !s()?.signedIn && !busy()}>
+				<div class="ctx">
+					<div class="notice notice--info">
+						<span class="notice__text">
+							Not signed in to claude.ai.
+							<span class="notice__sub">Sign in, or switch to a saved account below.</span>
 						</span>
 						<button
 							class="btn btn--sm"
 							type="button"
-							onClick={() =>
-								void chrome.tabs
-									.create({ url: props.s.meKnown ? 'https://claude.ai/login' : 'https://claude.ai/new' })
-									.then(() => window.close())
-							}
+							onClick={() => void chrome.tabs.create({ url: 'https://claude.ai/login' }).then(() => window.close())}
 						>
-							{props.s.meKnown ? 'Sign in' : 'Open'}
+							Sign in
 						</button>
 					</div>
 				</div>
 			</Show>
 
-			<Show when={props.error}>
-				<div class="ctx">
-					<div class="notice notice--error">
-						<span class="notice__text">{props.error}</span>
-					</div>
-				</div>
-			</Show>
-
-			<Show when={tabInfo()}>
-				{info => (
+			<Show when={s()?.tab}>
+				{tab => (
 					<section class="tab" aria-label="This tab">
 						<div class="tab__l1">
 							<span class="tab__title">This tab</span>
 							<span class="mono" style={{ color: 'var(--text-2)' }}>
-								artifact {shortUuid(info().tab.artifact)}
+								artifact {shortUuid(tab().artifact)}
 							</span>
 						</div>
 						<div class="kv">
 							<span>Opens with</span>
-							<b>{info().owner?.account?.email ?? (info().cached ? 'an account not set up here' : 'not checked yet')}</b>
+							<b>{tabOwner()?.email ?? (tab().cached ? 'a removed account' : 'not checked yet')}</b>
 						</div>
-						<Show when={info().cached}>
+						<Show when={tab().cached}>
 							<div class="tab__actions">
-								<Show when={info().owner && info().owner?.dir !== here() && info().owner}>
+								<Show when={tabOwner() && tabOwner()?.uuid !== s()?.activeUuid && tabOwner()}>
 									{owner => (
-										<button
-											class="btn btn--primary btn--sm"
-											type="button"
-											disabled={props.busy}
-											onClick={() => props.onOpen(owner().dir, info().tab.url)}
-										>
-											Open as {owner().account?.email}
+										<button class="btn btn--primary btn--sm" type="button" disabled={!!busy()} onClick={() => switchTo(owner())}>
+											Switch to {owner().email}
 										</button>
 									)}
 								</Show>
 								<button
 									class="btn btn--ghost btn--sm"
 									type="button"
-									disabled={props.busy}
-									onClick={() => props.onForget(info().tab.artifact)}
+									disabled={!!busy()}
+									onClick={() => void act({ kind: 'forget', artifact: tab().artifact }, 'Forgetting…')}
 								>
 									Forget
 								</button>
@@ -254,93 +217,98 @@ function Main(props: {
 				)}
 			</Show>
 
-			<ul class="list" aria-label="Accounts">
-				<For each={signedIn()}>
-					{row => {
-						const account = row.entry!.account!
-						const active = row.profile.dir === here()
-						const meta = [orgNames(account), row.profile.name].filter(Boolean).join(' · ')
-						return (
-							<li>
-								<Show
-									when={!active}
-									fallback={
-										<div class="row is-active" aria-current="true">
-											<Avatar email={account.email} />
-											<span class="row__main">
-												<span class="row__l1">
-													<span class="row__title">{account.email}</span>
-													<span class="row__state">This window</span>
-												</span>
-												<span class="row__meta">
-													<span class="row__org">{meta}</span>
-												</span>
-											</span>
-											<span class="row__check">
-												<Check />
-											</span>
-										</div>
-									}
-								>
-									<button
-										class="row"
-										type="button"
-										disabled={props.busy}
-										aria-label={`Open claude.ai as ${account.email}`}
-										onClick={() => props.onOpen(row.profile.dir, 'https://claude.ai/new')}
-									>
-										<Avatar email={account.email} />
-										<span class="row__main">
-											<span class="row__l1">
-												<span class="row__title">{account.email}</span>
-												<span class="row__time">{ago(row.entry?.lastSeen ?? 0)}</span>
-											</span>
-											<span class="row__meta">
-												<span class="row__org">{meta}</span>
-											</span>
-										</span>
-										<span class="row__check row__check--empty" />
-									</button>
-								</Show>
-							</li>
-						)
-					}}
-				</For>
-			</ul>
-
-			<Show when={others().length > 0}>
-				<p class="section-label">Other Chrome profiles</p>
-				<ul class="list" aria-label="Other Chrome profiles">
-					<For each={others()}>
-						{row => (
-							<li>
-								<button
-									class="row is-dim"
-									type="button"
-									disabled={props.busy}
-									onClick={() => props.onOpen(row.profile.dir, 'https://claude.ai/login')}
-								>
-									<span class="avatar" aria-hidden="true">
-										?
+			<ul class="list" aria-label="Saved accounts">
+				<Show when={active()}>
+					{a => (
+						<li>
+							<div class="row is-active" aria-current="true">
+								<Avatar email={a().email} />
+								<span class="row__main">
+									<span class="row__l1">
+										<span class="row__title">{a().email}</span>
+										<span class="row__state">Active</span>
 									</span>
+									<span class="row__meta">
+										<span class="row__org">{orgNames(a())}</span>
+									</span>
+								</span>
+								<span class="row__check">
+									<Check />
+								</span>
+							</div>
+						</li>
+					)}
+				</Show>
+				<For each={others()}>
+					{a => (
+						<li class="row-wrap">
+							<Show
+								when={confirmRemove() !== a.uuid}
+								fallback={
+									<div class="row row--static">
+										<span class="row__main">
+											<span class="row__title">Remove {a.email}?</span>
+											<span class="row__meta">Forgets the saved session. You’d sign in again to add it back.</span>
+										</span>
+										<button
+											class="btn btn--danger btn--sm"
+											type="button"
+											onClick={() => {
+												setConfirmRemove(null)
+												void act({ kind: 'remove', uuid: a.uuid }, 'Removing…')
+											}}
+										>
+											Remove
+										</button>
+										<button class="btn btn--ghost btn--sm" type="button" onClick={() => setConfirmRemove(null)}>
+											Cancel
+										</button>
+									</div>
+								}
+							>
+								<button
+									class="row"
+									type="button"
+									disabled={!!busy() || !!s()?.switching}
+									aria-label={a.expired ? `${a.email}: session expired, sign in again` : `Switch to ${a.email}`}
+									onClick={() => (a.expired ? void act({ kind: 'add' }, 'Opening sign-in…', true) : switchTo(a))}
+								>
+									<Avatar email={a.email} />
 									<span class="row__main">
 										<span class="row__l1">
-											<span class="row__title">{row.profile.name}</span>
+											<span class={a.expired ? 'row__title row__title--dim' : 'row__title'}>{a.email}</span>
+											<span class="row__time">{ago(a.lastUsedAt)}</span>
 										</span>
 										<span class="row__meta">
-											<span class="row__org">
-												{row.entry ? 'Not signed in to claude.ai' : 'Extension not loaded or not used yet'}
-											</span>
+											<Show when={a.expired} fallback={<span class="row__org">{orgNames(a)}</span>}>
+												<span class="chip chip-amber">Session expired · sign in again</span>
+											</Show>
 										</span>
 									</span>
 								</button>
-							</li>
-						)}
-					</For>
-				</ul>
+								<button
+									class="icon-btn row__remove"
+									type="button"
+									aria-label={`Remove ${a.email}`}
+									title="Remove"
+									onClick={() => setConfirmRemove(a.uuid)}
+								>
+									×
+								</button>
+							</Show>
+						</li>
+					)}
+				</For>
+			</ul>
+
+			<Show when={s() && s()?.accounts.length === 0 && !s()?.unsaved}>
+				<div class="empty">
+					<p class="empty__title">No saved accounts</p>
+					<p class="empty__detail">Sign in to claude.ai and save the account, then add the others.</p>
+				</div>
 			</Show>
 
-			<Show when={state()}>
+			<Show when={s()}>
 				{st => (
 					<section class="group">
 						<div class="group__hdr">
@@ -354,8 +322,8 @@ function Main(props: {
 										type="button"
 										role="radio"
 										aria-checked={st().mode === mode}
-										disabled={props.busy}
-										onClick={() => props.onMode(mode)}
+										disabled={!!busy()}
+										onClick={() => void act({ kind: 'setMode', mode }, 'Saving…')}
 									>
 										{MODE_LABEL[mode]}
 									</button>
@@ -366,93 +334,21 @@ function Main(props: {
 					</section>
 				)}
 			</Show>
-		</>
-	)
-}
 
-function HostMissing(props: { error: string; onRetry: () => void }): JSX.Element {
-	return (
-		<>
-			<Header />
-			<div class="empty">
-				<p class="empty__title">Helper not installed</p>
-				<p class="empty__detail">
-					The extension needs a small local helper to open links in other Chrome profiles. Run this once in the
-					repo, then retry:
-				</p>
-				<code class="code" style={{ 'margin-top': '12px' }}>
-					npm run install-host
-				</code>
-				<p class="err">{props.error}</p>
-				<button class="btn btn--primary empty__action" type="button" onClick={() => props.onRetry()}>
-					Retry
+			<footer class="actions">
+				<span class="group__hint" style={{ margin: 0 }}>
+					Never log out in claude.ai: it ends the session for good.
+				</span>
+				<span class="spacer" />
+				<button
+					class="btn btn--quiet"
+					type="button"
+					disabled={!!busy() || !!s()?.switching}
+					onClick={() => void act({ kind: 'add' }, 'Opening sign-in…', true)}
+				>
+					Add account
 				</button>
-			</div>
-		</>
-	)
-}
-
-function PickProfile(props: {
-	profiles: ChromeProfile[]
-	busy: boolean
-	onDetect: () => void
-	onPick: (dir: string) => void
-}): JSX.Element {
-	return (
-		<>
-			<Header />
-			<div class="empty">
-				<p class="empty__title">Which Chrome profile is this?</p>
-				<p class="empty__detail">Automatic detection didn’t work yet. Pick this window’s profile.</p>
-				<div class="pick">
-					<For each={props.profiles}>
-						{p => (
-							<button class="btn btn--quiet" type="button" disabled={props.busy} onClick={() => props.onPick(p.dir)}>
-								{p.name} <span class="menu__meta">{p.dir}</span>
-							</button>
-						)}
-					</For>
-				</div>
-				<button class="btn btn--ghost empty__action" type="button" disabled={props.busy} onClick={() => props.onDetect()}>
-					Try detecting again
-				</button>
-			</div>
-		</>
-	)
-}
-
-function AddAccount(props: { distDir: string | null; onBack: () => void }): JSX.Element {
-	return (
-		<>
-			<div class="push">
-				<button class="icon-btn icon-btn--28" type="button" aria-label="Back" onClick={() => props.onBack()}>
-					<Back />
-				</button>
-				<span class="push__title">Add account</span>
-			</div>
-			<ol class="steps">
-				<li class="step">
-					<span>
-						In Chrome’s profile menu choose <b>Add</b> and create a profile for the account. Name it after the account,
-						for example “ucet1”.
-					</span>
-				</li>
-				<li class="step">
-					<span>
-						In the new profile open <b>chrome://extensions</b>, turn on Developer mode, choose <b>Load unpacked</b> and
-						pick:
-						<code class="code">{props.distDir ?? '…/claude-accounts/dist'}</code>
-					</span>
-				</li>
-				<li class="step">
-					<span>
-						Sign in to <b>claude.ai</b> in that profile with the account. It shows up here on its own.
-					</span>
-				</li>
-			</ol>
-			<p class="group__hint" style={{ padding: '0 16px 16px' }}>
-				Never log out of an account in claude.ai: logging out ends that session everywhere. Close the profile instead.
-			</p>
-		</>
+			</footer>
+		</div>
 	)
 }

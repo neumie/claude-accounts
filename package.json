@@ -2,16 +2,13 @@
 	"name": "claude-accounts",
 	"version": "0.1.0",
 	"private": true,
-	"description": "Chrome extension: one Chrome profile per claude.ai account, artifact links open in the profile that can see them",
+	"description": "Chrome extension: switch claude.ai accounts in one window; artifact links switch to the account that can open them",
 	"type": "module",
 	"scripts": {
 		"build": "node build.mjs",
 		"typecheck": "tsc --noEmit",
 		"test": "node --test test/*.test.ts",
-		"check": "npm run typecheck && npm run build && npm test && npm run test:bundle",
-		"install-host": "npm run build && node host/install.ts",
-		"uninstall-host": "node host/install.ts --uninstall",
-		"test:bundle": "HOST_ENTRY=dist-host/host.mjs node --test test/host.test.ts"
+		"check": "npm run typecheck && npm test && npm run build"
 	},
 	"engines": {
 		"node": ">=23.6"
