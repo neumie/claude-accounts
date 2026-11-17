@@ -7,13 +7,13 @@ Chrome rozšíření (MV3) pro přepínání mezi Jakubovými claude.ai účty.
 
 Stav k 17. 11. 2026: postavená **varianta A** (jedno okno, výměna cookies), viz sekce 0a. Návod je v `README.md`. Testy, typecheck a build procházejí. Jakub 17. 11. 2026 živě ověřil ruční přepínání i automatické přepnutí na soukromý artifact jiného účtu.
 
-**Účty** (od dispatchera, stejné jako v Okena AI proxy poolu):
+**Účty** (od dispatchera, stejné jako v Okena AI proxy poolu; ve veřejném repu jsou skutečné e-maily nahrazené zástupnými `ucetN@example.com`):
 
 | E-mail | Orgy | Poznámka |
 |---|---|---|
-| `ucet3@example.com` | ? (zjistí `/api/account` při uložení) | |
-| `ucet2@example.com` | ? | |
 | `ucet1@example.com` | ? | je na něm i Claude Code CLI |
+| `ucet2@example.com` | ? | |
+| `ucet3@example.com` | ? (zjistí `/api/account` při uložení) | |
 
 Důsledky:
 - Jsou to **tři různé e-maily** → přepínání mezi nimi claude.ai samo neumí, rozšíření je potřeba pro všechny tři. Orgy pod každým e-mailem řeší claude.ai samo.
@@ -25,7 +25,7 @@ Důsledky:
 
 ## 0a. Změna: varianta A (17. 11. 2026, později téhož dne)
 
-Jakub nechce přepínat mezi okny Chrome (B), chce jedno okno. Staví se proto **A**: výměna cookies v jednom profilu podle sekce 2. Kód B zůstává v gitu (commit `ddfea91`) jako záloha pro případ, že by DBSC výměnu zablokovalo.
+Jakub nechce přepínat mezi okny Chrome (B), chce jedno okno. Staví se proto **A**: výměna cookies v jednom profilu podle sekce 2. Kód B zůstává v gitu (commit `c945f65`) jako záloha pro případ, že by DBSC výměnu zablokovalo.
 
 Rozhodnutí pro A:
 - **Ukládání účtu:** explicitně přes „Save“, nebo automaticky po „Add account“. Snapshot se průběžně obnovuje, protože session rotují. Vlastník session se vždycky ověřuje přes `/api/account`.
@@ -50,7 +50,7 @@ Rozhodnutí pro A:
   - Session se ukládají, jen když Chrome dovolí zamknout úložiště jen pro rozšíření. Jinak se neuloží nic.
 
 **Neověřeno živě** (potřebuje test v Jakubově Chrome):
-1. Jestli DBSC (`__Host-sessionBinding`) výměnu cookies snese. Pokud ne, vrátit se k B (`ddfea91`).
+1. Jestli DBSC (`__Host-sessionBinding`) výměnu cookies snese. Pokud ne, vrátit se k B (`c945f65`).
 2. Jestli funguje tichá kontrola přes DNR (Cookie header na vlastním fetchi rozšíření) a jak `/api/frame` odpoví účtu bez přístupu.
 3. Jak přesně vypadá logout request, který claude.ai po změně účtu posílá, a jestli ho blokace chytí.
 4. Claude in Chrome a další věci přihlášené přes claude.ai cookies v tomhle profilu se přepnou s ním.
@@ -239,7 +239,7 @@ Lokální HTML soubory (záměrně ne claude.ai artifact). Každý ukazuje 6+ st
 
 1. **Živý test (sekce 3):** smím ho připravit (probe rozšíření) a ty ho projdeš? Ve druhém, testovacím Chrome profilu?
 2. **Varianta A vs. B:** pokud test projde, jdeme do A? Nebo chceš kvůli bezpečnosti rovnou B (profily, žádné uložené kredenciály)?
-3. **Účty:** e-maily známe (`ucet3@`, `ucet2@`, `ucet1@example.com`). Zbývá: jak se do nich přihlašuješ (Google/SSO/magic link)? Je Contember org pod některým z nich?
+3. **Účty:** e-maily známe (`ucet1@`, `ucet2@`, `ucet3@example.com`). Zbývá: jak se do nich přihlašuješ (Google/SSO/magic link)? Je Contember org pod některým z nich?
 4. **Stack:** Solid + rollup jako Helm (doporučuju; brief říkal React + Vite, Helm ale reálně React nepoužívá)?
 5. **Výchozí režim auto-switche:** Auto, nebo Ask?
 6. **Šifrování uložených session heslem:** ano (jedno heslo po startu Chrome), nebo ne?

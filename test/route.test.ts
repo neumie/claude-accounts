@@ -11,10 +11,10 @@ const acc = (uuid: string, email: string, lastUsedAt: number, orgs: string[] = [
 	expired,
 	orgs: orgs.map(o => ({ uuid: o, name: '' })),
 })
-const C1 = acc('u1', 'ucet1@example.com', 300, [ORG_A])
-const C = acc('u2', 'ucet2@example.com', 200, [ORG_B])
-const N = acc('u3', 'ucet3@example.com', 100)
-const ALL = [C1, C, N]
+const U1 = acc('u1', 'ucet1@example.com', 300, [ORG_A])
+const U2 = acc('u2', 'ucet2@example.com', 200, [ORG_B])
+const U3 = acc('u3', 'ucet3@example.com', 100)
+const ALL = [U1, U2, U3]
 
 test('others by most recent use, never the active one', () => {
 	const r = candidates({ activeUuid: 'u1', accounts: ALL, cached: undefined, ownerOrg: null, tried: [] })
@@ -30,7 +30,7 @@ test('cache first, then owner org, then the rest', () => {
 
 test('tried and expired accounts are skipped', () => {
 	const expired = acc('u3', 'ucet3@example.com', 100, [], true)
-	const r = candidates({ activeUuid: 'u1', accounts: [C1, C, expired], cached: { accountUuid: 'u3', ts: 1 }, ownerOrg: null, tried: ['u2'] })
+	const r = candidates({ activeUuid: 'u1', accounts: [U1, U2, expired], cached: { accountUuid: 'u3', ts: 1 }, ownerOrg: null, tried: ['u2'] })
 	assert.deepEqual(r, [])
 })
 
@@ -39,8 +39,8 @@ test('no active account (signed out): everyone is a candidate', () => {
 })
 
 test('own org is left to claude.ai', () => {
-	assert.equal(ownOrg(C1, ORG_A), true)
-	assert.equal(ownOrg(C1, ORG_B), false)
+	assert.equal(ownOrg(U1, ORG_A), true)
+	assert.equal(ownOrg(U1, ORG_B), false)
 	assert.equal(ownOrg(undefined, ORG_A), false)
-	assert.equal(ownOrg(C1, null), false)
+	assert.equal(ownOrg(U1, null), false)
 })
