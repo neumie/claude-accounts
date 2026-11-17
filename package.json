@@ -26,5 +26,6 @@
 		"babel-preset-solid": "^1.9.19",
 		"rollup": "^4.68.3",
 		"typescript": "^5.9.3"
-	}
+	},
+	"license": "MIT"
 }

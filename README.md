@@ -46,3 +46,7 @@ npm run check   # tsc + testy + build
 - `src/content.ts`: běží na claude.ai. Po přepnutí vyčistí stav stránky, hlásí přihlášený účet a kontroluje artifacty.
 - `src/popup/`: UI (Solid jako Helm).
 - Po změně spusť `npm run build` a v `chrome://extensions` dej u rozšíření reload.
+
+## Licence
+
+MIT, viz `LICENSE`.
