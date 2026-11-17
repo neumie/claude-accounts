@@ -33,5 +33,6 @@ cpSync('src/manifest.json', 'dist/manifest.json')
 cpSync('src/popup/popup.html', 'dist/popup.html')
 cpSync('src/popup/popup.css', 'dist/popup.css')
 cpSync('src/switching.html', 'dist/switching.html')
+cpSync('src/switching.js', 'dist/switching.js')
 
 console.log('Extension built to dist/')

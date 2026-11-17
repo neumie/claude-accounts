@@ -42,7 +42,11 @@ export function probeUrl(artifact: string, org: string | null, shareKey: string 
 }
 
 /** GET /api/account → our Account shape, or null if the body is not an account. */
-export function parseAccount(body: unknown): { uuid: string; email: string; orgs: { uuid: string; name: string }[] } | null {
+export function parseAccount(body: unknown): {
+	uuid: string
+	email: string
+	orgs: { uuid: string; name: string }[]
+} | null {
 	if (!body || typeof body !== 'object') return null
 	const b = body as Record<string, unknown>
 	const uuid = b.uuid
@@ -54,7 +58,10 @@ export function parseAccount(body: unknown): { uuid: string; email: string; orgs
 		if (!org || typeof org !== 'object') continue
 		const o = org as Record<string, unknown>
 		if (!isUuid(o.uuid)) continue
-		orgs.push({ uuid: o.uuid.toLowerCase(), name: typeof o.name === 'string' ? o.name.slice(0, 120) : '' })
+		orgs.push({
+			uuid: o.uuid.toLowerCase(),
+			name: typeof o.name === 'string' ? o.name.slice(0, 120) : '',
+		})
 	}
 	return { uuid: uuid.toLowerCase(), email: email.slice(0, 254), orgs }
 }

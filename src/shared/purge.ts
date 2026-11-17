@@ -53,10 +53,13 @@ function clearDatabase(idb: IDBFactory, name: string): Promise<void> {
 				// Clear the stores instead of deleteDatabase, which blocks while the page holds a connection.
 				const tx = db.transaction(stores, 'readwrite')
 				for (const s of stores) tx.objectStore(s).clear()
-				tx.oncomplete = tx.onerror = tx.onabort = () => {
-					db.close()
-					finish()
-				}
+				tx.oncomplete =
+					tx.onerror =
+					tx.onabort =
+						() => {
+							db.close()
+							finish()
+						}
 			} catch {
 				db.close()
 				finish()
@@ -92,7 +95,14 @@ export function purgeSiteData(
 	if (idb?.databases) {
 		void idb
 			.databases()
-			.then(dbs => Promise.all(dbs.map(d => d.name).filter((n): n is string => !!n && !KEEP_DBS.has(n)).map(n => clearDatabase(idb, n))))
+			.then(dbs =>
+				Promise.all(
+					dbs
+						.map(d => d.name)
+						.filter((n): n is string => !!n && !KEEP_DBS.has(n))
+						.map(n => clearDatabase(idb, n)),
+				),
+			)
 			.catch(() => undefined)
 	}
 	if (cacheStorage) {

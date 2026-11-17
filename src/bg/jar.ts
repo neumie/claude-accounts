@@ -10,7 +10,10 @@ export async function readJar(): Promise<StoredCookie[]> {
 }
 
 export async function currentSessionKey(): Promise<string | null> {
-	const c = await chrome.cookies.get({ url: 'https://claude.ai/', name: SESSION_COOKIE })
+	const c = await chrome.cookies.get({
+		url: 'https://claude.ai/',
+		name: SESSION_COOKIE,
+	})
 	return c?.value || null
 }
 

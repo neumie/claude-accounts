@@ -5,7 +5,7 @@ Chrome rozšíření (MV3) pro přepínání mezi Jakubovými claude.ai účty.
 1. **Auto:** otevřeš odkaz na artifact, který aktuální účet neotevře → rozšíření přepne na účet, který ho otevře, a stránku znovu načte.
 2. **Ručně:** popup se seznamem účtů (e-mail + org), přepnutí jedním klikem, je vidět, který účet je aktivní.
 
-Stav k 17. 11. 2026: postavená **varianta B** (sekce 0), návod v `README.md`. Testy, typecheck a build procházejí. Pomocník je nainstalovaný a odpovídá. Živě v Chrome s účty to ještě neprošlo, viz „Neověřeno živě“ v sekci 0.
+Stav k 17. 11. 2026: postavená **varianta A** (jedno okno, výměna cookies), viz sekce 0a. Návod je v `README.md`. Testy, typecheck a build procházejí. Živě s účty to ještě neprošlo.
 
 **Účty** (od dispatchera, stejné jako v Okena AI proxy poolu):
 
@@ -23,7 +23,40 @@ Důsledky:
 
 ---
 
-## 0. Rozhodnutí (17. 11. 2026)
+## 0a. Změna: varianta A (17. 11. 2026, později téhož dne)
+
+Jakub nechce přepínat mezi okny Chrome (B), chce jedno okno. Staví se proto **A**: výměna cookies v jednom profilu podle sekce 2. Kód B zůstává v gitu (commit `ddfea91`) jako záloha pro případ, že by DBSC výměnu zablokovalo.
+
+Rozhodnutí pro A:
+- **Ukládání účtu:** explicitně přes „Save“, nebo automaticky po „Add account“. Snapshot se průběžně obnovuje, protože session rotují. Vlastník session se vždycky ověřuje přes `/api/account`.
+- **Co se prohazuje:** všechny claude.ai cookies kromě zařízení a Cloudflare (`anthropic-device-id`, `cf_*`, `__cf_bm`, `_cfuvid`). Stejně to dělá [WZ], který podle autora funguje.
+- **Proti „involuntary logout“** jsou tři pojistky:
+  - zaparkování všech claude.ai tabů;
+  - vyčištění stavu stránky při `document_start` přes marker cookie, mimo úložiště zařízení;
+  - DNR blokace logout požadavků během přepnutí a 30 s po něm.
+- **Auto-switch pro artifacty:**
+  1. nejdřív tichá kontrola ostatních účtů (DNR nastaví Cookie jen pro jeden vlastní request rozšíření);
+  2. když nejde, viditelné zkoušení účtů jeden po druhém;
+  3. když artifact neotevře nikdo, návrat na původní účet a banner.
+- **Šifrování heslem:** ne. Session leží v `chrome.storage.local` s přístupem jen pro rozšíření. Riziko je popsané v README.
+- **Pojistky přepínání** (po nezávislé kontrole kódu):
+  - Po dobu přepnutí se blokuje každé načtení claude.ai stránky.
+  - Tab, který se nedá zaparkovat (dialog „Leave site?“), přepnutí zastaví dřív, než se cokoli změní.
+  - Odcházející session se před výměnou vždycky uloží, a to i neuložený účet. Když claude.ai neodpoví, nic se nemění.
+  - Přepínání běží vždy jen jedno.
+  - Rozpracované přepnutí si service worker zapisuje do deníku. Když spadne, po restartu ho dokončí nebo vrátí.
+  - Taby obnovené po přepnutí samy nepřepínají, aby se dva artifacty různých účtů nepřetahovaly.
+  - Neúspěšné přepnutí vrátí taby na původní URL.
+  - Session se ukládají, jen když Chrome dovolí zamknout úložiště jen pro rozšíření. Jinak se neuloží nic.
+
+**Neověřeno živě** (potřebuje test v Jakubově Chrome):
+1. Jestli DBSC (`__Host-sessionBinding`) výměnu cookies snese. Pokud ne, vrátit se k B (`ddfea91`).
+2. Jestli funguje tichá kontrola přes DNR (Cookie header na vlastním fetchi rozšíření) a jak `/api/frame` odpoví účtu bez přístupu.
+3. Jak přesně vypadá logout request, který claude.ai po změně účtu posílá, a jestli ho blokace chytí.
+4. Claude in Chrome a další věci přihlášené přes claude.ai cookies v tomhle profilu se přepnou s ním.
+5. Šedá zóna ToS: přepínání víc vlastních účtů v jednom prohlížeči. Nic se neobchází, jen se prohazují vlastní cookies.
+
+## 0. Rozhodnutí (17. 11. 2026, překonáno sekcí 0a)
 
 Jakub nechal rozhodnutí na agentovi („rozhoduj ty, vyber to nejlepší“). Platí tohle, otázky v sekci 6 jsou tím uzavřené:
 

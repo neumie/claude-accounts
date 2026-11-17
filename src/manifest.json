@@ -6,14 +6,8 @@
 	"key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAo7O7UTKje9QCca2GChoDdBKy7y1rfTsXRhcgdeANWDXz0A4+mv5xNcIO0/mreYtGomT9Vm2rpbSaDAtGXDx+FH00tKkyVUJ5dBa3k+//KsFqvIHM11vwukFuMt5SwNN1JkH1xxdO1VfD8HIVK3579ms71i3PPeNyPb96UCVHHIDR7hhG6dDDua+f0aNo4Y7G4V1uFc4YNo9venJHaHuqnlC9CqV03zER5xTIuTSXpQT7Pw6rbnOOpGOQphTubPlwyeiU9CorySEuoC7nsXHBbRP2BfTwWkuMZqs2Jz/mdfRNVXnuEKtYUCzyq4luYjl2vxn4NurxP/p2YhQS9cbOCwIDAQAB",
 	"minimum_chrome_version": "120",
 	"incognito": "not_allowed",
-	"permissions": [
-		"storage",
-		"cookies",
-		"declarativeNetRequestWithHostAccess"
-	],
-	"host_permissions": [
-		"https://claude.ai/*"
-	],
+	"permissions": ["storage", "cookies", "declarativeNetRequestWithHostAccess"],
+	"host_permissions": ["https://claude.ai/*"],
 	"background": {
 		"service_worker": "background.js"
 	},
@@ -23,12 +17,8 @@
 	},
 	"content_scripts": [
 		{
-			"matches": [
-				"https://claude.ai/*"
-			],
-			"js": [
-				"content.js"
-			],
+			"matches": ["https://claude.ai/*"],
+			"js": ["content.js"],
 			"run_at": "document_start",
 			"all_frames": false
 		}

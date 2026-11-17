@@ -222,3 +222,5 @@ button.row:active:not(:disabled){background:var(--fill-raised)}
 .row__title--dim{color:var(--text-2)}
 .row--static{gap:8px;cursor:default}
 .row--static .row__meta{white-space:normal}
+.row-wrap > .row.is-active{padding-right:64px}
+.row-wrap > .row.is-active ~ .row__remove{right:36px}

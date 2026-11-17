@@ -35,7 +35,10 @@ async function readJson(res: Response): Promise<unknown> {
 /** undefined = could not tell (challenge, network); null = signed out. */
 async function fetchAccount(): Promise<AccountInfo | null | undefined> {
 	try {
-		const res = await fetch('/api/account', { credentials: 'same-origin', cache: 'no-store' })
+		const res = await fetch('/api/account', {
+			credentials: 'same-origin',
+			cache: 'no-store',
+		})
 		if (res.headers.get('cf-mitigated') === 'challenge') return undefined
 		const body = await readJson(res)
 		if (res.ok) return parseAccount(body) ?? undefined
@@ -55,7 +58,11 @@ async function probe(ref: ArtifactRef, org: string | null): Promise<ProbeResult>
 		})
 		const body = res.status === 200 ? null : await readJson(res)
 		await res.body?.cancel().catch(() => undefined)
-		return classifyProbe({ status: res.status, header: n => res.headers.get(n), body })
+		return classifyProbe({
+			status: res.status,
+			header: n => res.headers.get(n),
+			body,
+		})
 	} catch {
 		return { kind: 'unknown' }
 	}
@@ -98,7 +105,13 @@ async function onUrl(href: string): Promise<void> {
 	if (!result) return
 	let reply: ProbeReply
 	try {
-		reply = await send<ProbeReply>({ kind: 'probe', artifact: ref.uuid, url: href, result, at })
+		reply = await send<ProbeReply>({
+			kind: 'probe',
+			artifact: ref.uuid,
+			url: href,
+			result,
+			at,
+		})
 	} catch {
 		return
 	}
@@ -110,7 +123,12 @@ function render(reply: ProbeReply, me: AccountInfo, ref: ArtifactRef, href: stri
 		case 'none':
 			return
 		case 'switching':
-			showBanner({ tone: 'info', text: `${me.email} can't open this artifact. Switching to ${reply.target.email}…` })
+			showBanner({
+				tone: 'info',
+				text: reply.verified
+					? `${me.email} can't open this artifact. Switching to ${reply.target.email}…`
+					: `${me.email} can't open this artifact. Trying ${reply.target.email}…`,
+			})
 			return
 		case 'routedHere':
 			showBanner({
@@ -124,13 +142,19 @@ function render(reply: ProbeReply, me: AccountInfo, ref: ArtifactRef, href: stri
 		case 'ask':
 			showBanner({
 				tone: 'warn',
-				text: `${me.email} can't open this artifact. ${reply.target.email} can.`,
+				text: reply.verified
+					? `${me.email} can't open this artifact. ${reply.target.email} can.`
+					: `${me.email} can't open this artifact. Try ${reply.target.email}?`,
 				actions: [
 					{
 						label: `Switch to ${reply.target.email}`,
 						primary: true,
 						run: () =>
-							send({ kind: 'switchFor', uuid: reply.target.uuid, url: href }).then(
+							send({
+								kind: 'switchFor',
+								uuid: reply.target.uuid,
+								url: href,
+							}).then(
 								() => true,
 								() => false,
 							),
@@ -140,7 +164,10 @@ function render(reply: ProbeReply, me: AccountInfo, ref: ArtifactRef, href: stri
 			})
 			return
 		case 'exhausted':
-			showBanner({ tone: 'warn', text: `None of your saved accounts can open artifact ${shortUuid(ref.uuid)}.` })
+			showBanner({
+				tone: 'warn',
+				text: `None of your saved accounts can open artifact ${shortUuid(ref.uuid)}.`,
+			})
 			return
 	}
 }
@@ -155,5 +182,8 @@ function start(): void {
 
 // A prerendered page isn't shown yet: wait until the user actually lands on it.
 const doc = document as Document & { prerendering?: boolean }
-if (doc.prerendering) document.addEventListener('prerenderingchange', () => start(), { once: true })
+if (doc.prerendering)
+	document.addEventListener('prerenderingchange', () => start(), {
+		once: true,
+	})
 else start()

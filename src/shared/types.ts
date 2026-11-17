@@ -34,10 +34,19 @@ export type SavedAccount = AccountInfo & {
 }
 
 /** What the popup may see about a saved account: no cookies. */
-export type AccountView = AccountInfo & { lastUsedAt: number; expired: boolean }
+export type AccountView = AccountInfo & {
+	lastUsedAt: number
+	expired: boolean
+}
 
 export function toView(a: SavedAccount): AccountView {
-	return { uuid: a.uuid, email: a.email, orgs: a.orgs, lastUsedAt: a.lastUsedAt, expired: a.expired }
+	return {
+		uuid: a.uuid,
+		email: a.email,
+		orgs: a.orgs,
+		lastUsedAt: a.lastUsedAt,
+		expired: a.expired,
+	}
 }
 
 export type CachedArtifact = { accountUuid: string; ts: number }

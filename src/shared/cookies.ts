@@ -64,7 +64,9 @@ export function setDetails(c: StoredCookie, now: number): chrome.cookies.SetDeta
 /** Cookie header for a background request made as `cookies`' account. */
 export function cookieHeader(cookies: readonly StoredCookie[], now: number): string {
 	return cookies
-		.filter(c => isAccountCookie(c.name) && (c.session || c.expirationDate === undefined || c.expirationDate * 1000 > now))
+		.filter(
+			c => isAccountCookie(c.name) && (c.session || c.expirationDate === undefined || c.expirationDate * 1000 > now),
+		)
 		.map(c => `${c.name}=${c.value}`)
 		.join('; ')
 }

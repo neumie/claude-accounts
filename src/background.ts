@@ -8,7 +8,16 @@ import { MODES, toView, type Attempt } from './shared/types.ts'
 import { clearProbeRules, silentCheck, whoAmI } from './bg/claude.ts'
 import { currentSessionKey } from './bg/jar.ts'
 import * as store from './bg/store.ts'
-import { captureLive, onPageAccount, saveCurrent, startAdd, switchTo } from './bg/switch.ts'
+import {
+	captureLive,
+	expireGuard,
+	isSwitching,
+	onPageAccount,
+	recover,
+	saveCurrent,
+	startAdd,
+	switchTo,
+} from './bg/switch.ts'
 
 // ---------- badge ----------
 
@@ -17,7 +26,9 @@ async function updateBadge(): Promise<void> {
 	const a = uuid ? await store.account(uuid) : undefined
 	if (a) {
 		await chrome.action.setBadgeText({ text: initials(a.email) })
-		await chrome.action.setBadgeBackgroundColor({ color: accountColor(a.email) })
+		await chrome.action.setBadgeBackgroundColor({
+			color: accountColor(a.email),
+		})
 		await chrome.action.setTitle({ title: `Claude accounts: ${a.email}` })
 	} else {
 		await chrome.action.setBadgeText({ text: '' })
@@ -38,8 +49,12 @@ function target(a: { uuid: string; email: string }): Target {
 async function onProbe(msg: Extract<ContentMessage, { kind: 'probe' }>, tabId: number): Promise<ProbeReply> {
 	const ref = parseArtifactUrl(msg.url)
 	if (!ref || ref.uuid !== msg.artifact) return { action: 'none' }
-	if (await store.locked()) return { action: 'none' }
-	if (msg.at < (await store.lastSwitchAt())) return { action: 'none' } // probed before a switch
+	if (await isSwitching()) return { action: 'none' }
+	const since = await store.lastSwitchAt()
+	if (msg.at < since) return { action: 'none' } // probed before a switch
+	// Tabs we reloaded after a switch don't route on their own: several artifact tabs
+	// owned by different accounts would otherwise switch back and forth forever.
+	const quiet = await store.isQuiet(tabId)
 	const [active, accounts, mode, cache] = await Promise.all([
 		store.activeUuid(),
 		store.accounts(),
@@ -52,14 +67,23 @@ async function onProbe(msg: Extract<ContentMessage, { kind: 'probe' }>, tabId: n
 
 	if (msg.result.kind === 'access') {
 		if (!active) return { action: 'none' }
+		if (quiet) {
+			await store.cacheArtifact(ref.uuid, active)
+			return { action: 'none' }
+		}
 		await store.cacheArtifact(ref.uuid, active)
 		if (!attempt) return { action: 'none' }
 		await store.setAttempt(null)
 		const from = attempt.originUuid && attempt.originUuid !== active ? attempt.originUuid : null
-		return { action: 'routedHere', from: accounts.find(a => a.uuid === from)?.email ?? null }
+		return {
+			action: 'routedHere',
+			from: accounts.find(a => a.uuid === from)?.email ?? null,
+		}
 	}
 
-	if (mode === 'off') return { action: 'none' }
+	if (mode === 'off' || quiet) return { action: 'none' }
+	// Signed in to an account that isn't saved: switching away would need it saved first.
+	if (!active) return { action: 'none' }
 	const activeAccount = accounts.find(a => a.uuid === active)
 	const ownerOrg = msg.result.kind === 'org_mismatch' ? msg.result.ownerOrg : null
 	if (ownOrg(activeAccount, ownerOrg)) return { action: 'none' }
@@ -81,14 +105,22 @@ async function onProbe(msg: Extract<ContentMessage, { kind: 'probe' }>, tabId: n
 
 	// Ask accounts silently first; whatever can't be checked silently is tried by switching.
 	let pick: Target | null = null
+	let verified = false
 	let silent = true
-	for (const c of candidates({ activeUuid: active, accounts, cached: cache[ref.uuid], ownerOrg, tried: round.tried })) {
+	for (const c of candidates({
+		activeUuid: active,
+		accounts,
+		cached: cache[ref.uuid],
+		ownerOrg,
+		tried: round.tried,
+	})) {
 		const acc = accounts.find(a => a.uuid === c.uuid)
 		if (!acc) continue
 		if (silent) {
 			const r = await silentCheck(acc, ref.uuid).catch(() => null)
 			if (r?.kind === 'access') {
 				pick = target(acc)
+				verified = true
 				break
 			}
 			if (r) {
@@ -101,23 +133,31 @@ async function onProbe(msg: Extract<ContentMessage, { kind: 'probe' }>, tabId: n
 		break
 	}
 
+	// The silent checks took a while: if the user switched meanwhile, this decision is stale.
+	if ((await isSwitching()) || (await store.lastSwitchAt()) !== since || (await store.activeUuid()) !== active) {
+		return { action: 'none' }
+	}
+	const focus = { tabId, url: msg.url }
+
 	if (!pick) {
 		round.done = true
 		await store.setAttempt(round)
 		const origin = accounts.find(a => a.uuid === round.originUuid)
 		if (origin && origin.uuid !== active && mode === 'auto') {
-			setTimeout(() => void switchTo(origin.uuid, { tabId, url: msg.url }), 0)
-			return { action: 'switching', target: target(origin) }
+			setTimeout(() => void switchTo(origin.uuid, { focus, ifActive: active }), 0)
+			return { action: 'switching', target: target(origin), verified: false }
 		}
 		return { action: 'exhausted', backTo: null }
 	}
 
+	// Counted as tried now: if the switch fails, the next round moves on instead of retrying it.
+	round.tried.push(pick.uuid)
 	await store.setAttempt(round)
-	if (mode === 'ask') return { action: 'ask', target: pick }
+	if (mode === 'ask') return { action: 'ask', target: pick, verified }
 	const chosen = pick
 	// Reply first: the page gets parked as part of the switch.
-	setTimeout(() => void switchTo(chosen.uuid, { tabId, url: msg.url }), 0)
-	return { action: 'switching', target: chosen }
+	setTimeout(() => void switchTo(chosen.uuid, { focus, ifActive: active }), 0)
+	return { action: 'switching', target: chosen, verified }
 }
 
 // ---------- content script ----------
@@ -133,7 +173,7 @@ async function onContent(msg: ContentMessage, tabId: number): Promise<unknown> {
 			// "Open as …" in the Ask banner.
 			if (!parseArtifactUrl(msg.url)) throw new Error('not an artifact link')
 			if (!(await store.account(msg.uuid))) throw new Error('unknown account')
-			setTimeout(() => void switchTo(msg.uuid, { tabId, url: msg.url }), 0)
+			setTimeout(() => void switchTo(msg.uuid, { focus: { tabId, url: msg.url } }), 0)
 			return {}
 		}
 	}
@@ -146,9 +186,10 @@ async function popupState(tabUrl: string | null, tabId: number | null): Promise<
 		store.accounts(),
 		store.mode(),
 		store.artifacts(),
-		store.locked(),
+		isSwitching(),
 		currentSessionKey(),
 	])
+	const lastError = await store.takeLastError()
 	let activeUuid = await store.activeUuid()
 	let unsaved: PopupState['unsaved'] = null
 	if (key && !switching && !accounts.some(a => a.uuid === activeUuid)) {
@@ -171,9 +212,15 @@ async function popupState(tabUrl: string | null, tabId: number | null): Promise<
 		signedIn: !!key,
 		mode,
 		switching,
+		lastError,
 		tab:
 			ref && tabUrl && tabId !== null
-				? { tabId, artifact: ref.uuid, url: tabUrl, cached: cache[ref.uuid] ?? null }
+				? {
+						tabId,
+						artifact: ref.uuid,
+						url: tabUrl,
+						cached: cache[ref.uuid] ?? null,
+					}
 				: null,
 	}
 }
@@ -181,14 +228,21 @@ async function popupState(tabUrl: string | null, tabId: number | null): Promise<
 async function onPopup(msg: PopupMessage): Promise<unknown> {
 	switch (msg.kind) {
 		case 'popupState': {
-			const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+			const [tab] = await chrome.tabs.query({
+				active: true,
+				currentWindow: true,
+			})
 			return popupState(msg.tabUrl, tab?.id ?? null)
 		}
 		case 'switch': {
-			const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+			const [tab] = await chrome.tabs.query({
+				active: true,
+				currentWindow: true,
+			})
 			const focus =
 				msg.url && tab?.id !== undefined && parseArtifactUrl(msg.url) ? { tabId: tab.id, url: msg.url } : undefined
-			const res = await switchTo(msg.uuid, focus)
+			const res = await switchTo(msg.uuid, focus ? { focus } : {})
+			if (!res.ok) await store.setLastError(null) // shown right here instead
 			if (!res.ok) throw new Error(res.error)
 			return res
 		}
@@ -228,7 +282,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 	else return false
 	work.then(
 		data => sendResponse({ ok: true, data } satisfies Reply<unknown>),
-		err => sendResponse({ ok: false, error: err instanceof Error ? err.message : String(err) } satisfies Reply<unknown>),
+		err =>
+			sendResponse({
+				ok: false,
+				error: err instanceof Error ? err.message : String(err),
+			} satisfies Reply<unknown>),
 	)
 	return true
 })
@@ -242,7 +300,7 @@ chrome.cookies.onChanged.addListener(({ cookie, removed }) => {
 })
 
 async function refreshAfterCookieChange(removed: boolean): Promise<void> {
-	if (await store.locked()) return
+	if (await isSwitching()) return
 	if (removed && !(await currentSessionKey())) {
 		await store.setActive(null)
 		return
@@ -252,12 +310,16 @@ async function refreshAfterCookieChange(removed: boolean): Promise<void> {
 	if (a && pending && (await store.account(a.uuid))) await store.setPendingAdd(false)
 }
 
-async function startup(): Promise<void> {
-	await store.init().catch(() => undefined)
+// Runs on every service-worker start (not only browser start): finish anything a
+// previous worker left half-done.
+async function wake(): Promise<void> {
+	await store.ensureSecureStorage().catch(err => store.setLastError(err instanceof Error ? err.message : String(err)))
 	await clearProbeRules().catch(() => undefined)
-	await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [900] }).catch(() => undefined)
-	await updateBadge()
+	await recover().catch(() => undefined)
+	await expireGuard().catch(() => undefined)
+	await updateBadge().catch(() => undefined)
 }
 
-chrome.runtime.onInstalled.addListener(() => void startup())
-chrome.runtime.onStartup.addListener(() => void startup())
+void wake()
+chrome.runtime.onInstalled.addListener(() => void updateBadge())
+chrome.runtime.onStartup.addListener(() => void updateBadge())

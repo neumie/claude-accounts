@@ -11,7 +11,11 @@ export type RouteInput = {
 	tried: readonly string[]
 }
 
-export type Candidate = { uuid: string; email: string; why: 'cache' | 'owner_org' | 'other' }
+export type Candidate = {
+	uuid: string
+	email: string
+	why: 'cache' | 'owner_org' | 'other'
+}
 
 export function candidates(input: RouteInput): Candidate[] {
 	const skip = new Set([...input.tried, ...(input.activeUuid ? [input.activeUuid] : [])])

@@ -15,7 +15,11 @@ async function load(): Promise<PopupState> {
 	return send<PopupState>({ kind: 'popupState', tabUrl: tab?.url ?? null })
 }
 
-const MODE_LABEL: Record<Mode, string> = { auto: 'Auto', ask: 'Ask', off: 'Off' }
+const MODE_LABEL: Record<Mode, string> = {
+	auto: 'Auto',
+	ask: 'Ask',
+	off: 'Off',
+}
 const MODE_HINT: Record<Mode, string> = {
 	auto: 'An artifact the active account can’t open switches to the account that can.',
 	ask: 'An artifact the active account can’t open asks before switching.',
@@ -23,7 +27,15 @@ const MODE_HINT: Record<Mode, string> = {
 }
 
 const Check = () => (
-	<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+	<svg
+		width="14"
+		height="14"
+		viewBox="0 0 14 14"
+		fill="none"
+		stroke="currentColor"
+		stroke-width="1.6"
+		aria-hidden="true"
+	>
 		<path d="M3 7.5l2.5 2.5L11 4.5" />
 	</svg>
 )
@@ -37,7 +49,10 @@ function Avatar(props: { email: string }): JSX.Element {
 }
 
 function orgNames(a: { orgs: { name: string }[] }): string {
-	return a.orgs.map(o => o.name).filter(Boolean).join(' · ')
+	return a.orgs
+		.map(o => o.name)
+		.filter(Boolean)
+		.join(' · ')
 }
 
 function ago(ts: number): string {
@@ -114,7 +129,7 @@ export function Popup(): JSX.Element {
 				</div>
 			</Show>
 
-			<Show when={error() ?? (data.error ? String(data.error) : null)}>
+			<Show when={error() ?? s()?.lastError ?? (data.error ? String(data.error) : null)}>
 				{msg => (
 					<div class="ctx">
 						<div class="notice notice--error">
@@ -148,7 +163,9 @@ export function Popup(): JSX.Element {
 						<div class="notice notice--warn">
 							<span class="notice__text">
 								Signed in as {u().email}
-								<span class="notice__sub">Not saved yet. Save it to switch back to it later.</span>
+								<span class="notice__sub">
+									Not saved yet. Save it to switch back to it later (switching saves it too).
+								</span>
 							</span>
 							<button
 								class="btn btn--primary btn--sm"
@@ -198,7 +215,12 @@ export function Popup(): JSX.Element {
 							<div class="tab__actions">
 								<Show when={tabOwner() && tabOwner()?.uuid !== s()?.activeUuid && tabOwner()}>
 									{owner => (
-										<button class="btn btn--primary btn--sm" type="button" disabled={!!busy()} onClick={() => switchTo(owner())}>
+										<button
+											class="btn btn--primary btn--sm"
+											type="button"
+											disabled={!!busy()}
+											onClick={() => switchTo(owner())}
+										>
 											Switch to {owner().email}
 										</button>
 									)}
@@ -220,22 +242,58 @@ export function Popup(): JSX.Element {
 			<ul class="list" aria-label="Saved accounts">
 				<Show when={active()}>
 					{a => (
-						<li>
-							<div class="row is-active" aria-current="true">
-								<Avatar email={a().email} />
-								<span class="row__main">
-									<span class="row__l1">
-										<span class="row__title">{a().email}</span>
-										<span class="row__state">Active</span>
+						<li class="row-wrap">
+							<Show
+								when={confirmRemove() !== a().uuid}
+								fallback={
+									<div class="row row--static">
+										<span class="row__main">
+											<span class="row__title">Remove {a().email}?</span>
+											<span class="row__meta">
+												Forgets the saved session. claude.ai stays signed in until you switch.
+											</span>
+										</span>
+										<button
+											class="btn btn--danger btn--sm"
+											type="button"
+											onClick={() => {
+												setConfirmRemove(null)
+												void act({ kind: 'remove', uuid: a().uuid }, 'Removing…')
+											}}
+										>
+											Remove
+										</button>
+										<button class="btn btn--ghost btn--sm" type="button" onClick={() => setConfirmRemove(null)}>
+											Cancel
+										</button>
+									</div>
+								}
+							>
+								<div class="row is-active" aria-current="true">
+									<Avatar email={a().email} />
+									<span class="row__main">
+										<span class="row__l1">
+											<span class="row__title">{a().email}</span>
+											<span class="row__state">Active</span>
+										</span>
+										<span class="row__meta">
+											<span class="row__org">{orgNames(a())}</span>
+										</span>
 									</span>
-									<span class="row__meta">
-										<span class="row__org">{orgNames(a())}</span>
+									<span class="row__check">
+										<Check />
 									</span>
-								</span>
-								<span class="row__check">
-									<Check />
-								</span>
-							</div>
+								</div>
+								<button
+									class="icon-btn row__remove"
+									type="button"
+									aria-label={`Remove ${a().email}`}
+									title="Remove"
+									onClick={() => setConfirmRemove(a().uuid)}
+								>
+									×
+								</button>
+							</Show>
 						</li>
 					)}
 				</Show>

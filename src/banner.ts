@@ -1,7 +1,11 @@
 // A small notice on top of claude.ai, isolated in a closed shadow root so the
 // page's CSS can't touch it. Helm tokens, dark only.
 
-export type BannerAction = { label: string; primary?: boolean; run: () => Promise<boolean> }
+export type BannerAction = {
+	label: string
+	primary?: boolean
+	run: () => Promise<boolean>
+}
 
 export type BannerOptions = {
 	tone: 'info' | 'warn'

@@ -6,12 +6,19 @@ import type { ProbeReport } from '../shared/messages.ts'
 import { classifyProbe, parseAccount, probeUrl, type ProbeResult } from '../shared/probe.ts'
 import type { AccountInfo, SavedAccount } from '../shared/types.ts'
 
+/** Well under the 30 s after which Chrome may kill a service worker waiting on fetch. */
+const FETCH_TIMEOUT_MS = 8000
+
 export type WhoAmI = { kind: 'ok'; account: AccountInfo } | { kind: 'signed_out' } | { kind: 'unknown' }
 
 /** GET /api/account with the browser's current cookies. */
 export async function whoAmI(): Promise<WhoAmI> {
 	try {
-		const res = await fetch('https://claude.ai/api/account', { credentials: 'include', cache: 'no-store' })
+		const res = await fetch('https://claude.ai/api/account', {
+			credentials: 'include',
+			cache: 'no-store',
+			signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+		})
 		if (res.headers.get('cf-mitigated') === 'challenge') return { kind: 'unknown' }
 		const json = (res.headers.get('content-type') ?? '').includes('application/json')
 		const body = json ? await res.json().catch(() => null) : null
@@ -67,10 +74,17 @@ async function probeAs(account: SavedAccount, artifact: string, org: string | nu
 					action: {
 						type: chrome.declarativeNetRequest.RuleActionType.MODIFY_HEADERS,
 						requestHeaders: [
-							{ header: 'cookie', operation: chrome.declarativeNetRequest.HeaderOperation.SET, value: header },
+							{
+								header: 'cookie',
+								operation: chrome.declarativeNetRequest.HeaderOperation.SET,
+								value: header,
+							},
 						],
 						responseHeaders: [
-							{ header: 'set-cookie', operation: chrome.declarativeNetRequest.HeaderOperation.REMOVE },
+							{
+								header: 'set-cookie',
+								operation: chrome.declarativeNetRequest.HeaderOperation.REMOVE,
+							},
 						],
 					},
 					condition: {
@@ -83,17 +97,28 @@ async function probeAs(account: SavedAccount, artifact: string, org: string | nu
 			],
 		})
 		try {
-			const res = await fetch(url, { credentials: 'omit', cache: 'no-store', headers: { 'X-Frame-CP': 'go' } })
+			const res = await fetch(url, {
+				credentials: 'omit',
+				cache: 'no-store',
+				headers: { 'X-Frame-CP': 'go' },
+				signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+			})
 			const body =
 				res.status !== 200 && (res.headers.get('content-type') ?? '').includes('application/json')
 					? await res.json().catch(() => null)
 					: null
 			await res.body?.cancel().catch(() => undefined)
-			return classifyProbe({ status: res.status, header: n => res.headers.get(n), body })
+			return classifyProbe({
+				status: res.status,
+				header: n => res.headers.get(n),
+				body,
+			})
 		} catch {
 			return { kind: 'unknown' } as const
 		} finally {
-			await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [id] })
+			await chrome.declarativeNetRequest.updateSessionRules({
+				removeRuleIds: [id],
+			})
 		}
 	})
 }
@@ -108,5 +133,8 @@ export async function silentCheck(account: SavedAccount, artifact: string): Prom
 export async function clearProbeRules(): Promise<void> {
 	const rules = await chrome.declarativeNetRequest.getSessionRules()
 	const ids = rules.filter(r => r.id >= 1000 && r.id < 2000).map(r => r.id)
-	if (ids.length) await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: ids })
+	if (ids.length)
+		await chrome.declarativeNetRequest.updateSessionRules({
+			removeRuleIds: ids,
+		})
 }

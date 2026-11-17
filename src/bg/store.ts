@@ -1,7 +1,7 @@
 // Extension state. Saved sessions live only in chrome.storage.local, which the
 // background restricts to TRUSTED_CONTEXTS (no content-script access). Never sync.
 
-import type { Attempt, CachedArtifact, Mode, SavedAccount } from '../shared/types.ts'
+import type { Attempt, CachedArtifact, Mode, SavedAccount, StoredCookie } from '../shared/types.ts'
 
 type Local = {
 	accounts?: SavedAccount[]
@@ -12,19 +12,52 @@ type Local = {
 
 type Session = {
 	attempt?: Attempt | null
-	/** Timestamp while a switch runs; survives a service-worker restart, expires after LOCK_TTL_MS. */
+	/** Heartbeat while a switch runs; survives a service-worker restart, expires after LOCK_TTL_MS. */
 	lock?: number | null
 	pendingAdd?: boolean
 	/** When the last switch started: page reports from before it may describe the previous account. */
 	lastSwitchAt?: number
+	/** Tabs the extension itself reloaded after a switch: they never trigger routing (tabId → until). */
+	quietTabs?: Record<string, number>
+	/** Logout guard rule may be removed after this time. */
+	guardUntil?: number
+	/** In-flight switch, so a restarted service worker can finish or undo it. */
+	journal?: Journal | null
+	/** Last switch error, shown by the popup next time it opens. */
+	lastError?: string | null
+}
+
+export type Journal = {
+	parked: { id: number; url: string }[]
+	/** The jar before the switch (credentials; session storage is memory-only and trusted-only). */
+	previous: StoredCookie[]
+	swapped: boolean
 }
 
 const MAX_CACHED = 500
 export const LOCK_TTL_MS = 30_000
 
-export async function init(): Promise<void> {
-	await chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' })
-	await chrome.storage.session.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' })
+let secured: Promise<void> | null = null
+
+/**
+ * Saved sessions must be unreadable for content scripts. Fails closed: if Chrome can't
+ * restrict storage.local, nothing secret gets stored.
+ */
+export function ensureSecureStorage(): Promise<void> {
+	secured ??= (async () => {
+		await chrome.storage.local.setAccessLevel({
+			accessLevel: 'TRUSTED_CONTEXTS',
+		})
+		await chrome.storage.session.setAccessLevel({
+			accessLevel: 'TRUSTED_CONTEXTS',
+		})
+	})().catch(err => {
+		secured = null
+		throw new Error(
+			`This Chrome can't keep saved sessions private (${err instanceof Error ? err.message : err}). Update Chrome.`,
+		)
+	})
+	return secured
 }
 
 async function local(): Promise<Local> {
@@ -32,7 +65,16 @@ async function local(): Promise<Local> {
 }
 
 async function session(): Promise<Session> {
-	return (await chrome.storage.session.get(['attempt', 'lock', 'pendingAdd', 'lastSwitchAt'])) as Session
+	return (await chrome.storage.session.get([
+		'attempt',
+		'lock',
+		'pendingAdd',
+		'lastSwitchAt',
+		'quietTabs',
+		'guardUntil',
+		'journal',
+		'lastError',
+	])) as Session
 }
 
 export async function accounts(): Promise<SavedAccount[]> {
@@ -44,6 +86,7 @@ export async function account(uuid: string): Promise<SavedAccount | undefined> {
 }
 
 export async function upsertAccount(next: SavedAccount): Promise<void> {
+	await ensureSecureStorage()
 	const list = await accounts()
 	const i = list.findIndex(a => a.uuid === next.uuid)
 	if (i >= 0) list[i] = next
@@ -62,7 +105,10 @@ export async function patchAccount(uuid: string, patch: Partial<SavedAccount>): 
 export async function removeAccount(uuid: string): Promise<void> {
 	const l = await local()
 	const artifacts = Object.fromEntries(Object.entries(l.artifacts ?? {}).filter(([, v]) => v.accountUuid !== uuid))
-	await chrome.storage.local.set({ accounts: (l.accounts ?? []).filter(a => a.uuid !== uuid), artifacts })
+	await chrome.storage.local.set({
+		accounts: (l.accounts ?? []).filter(a => a.uuid !== uuid),
+		artifacts,
+	})
 }
 
 export async function activeUuid(): Promise<string | null> {
@@ -118,6 +164,57 @@ export async function locked(): Promise<boolean> {
 export async function setLock(on: boolean): Promise<void> {
 	const patch: Session = on ? { lock: Date.now(), lastSwitchAt: Date.now() } : { lock: null }
 	await chrome.storage.session.set(patch)
+}
+
+/** Keep a long switch from looking abandoned. */
+export async function heartbeat(): Promise<void> {
+	const patch: Session = { lock: Date.now() }
+	await chrome.storage.session.set(patch)
+}
+
+export async function journal(): Promise<Journal | null> {
+	return (await session()).journal ?? null
+}
+
+export async function setJournal(j: Journal | null): Promise<void> {
+	const patch: Session = { journal: j }
+	await chrome.storage.session.set(patch)
+}
+
+const QUIET_MS = 20_000
+
+export async function quietTabs(ids: readonly number[]): Promise<void> {
+	const now = Date.now()
+	const cur = (await session()).quietTabs ?? {}
+	const next: Record<string, number> = {}
+	for (const [k, v] of Object.entries(cur)) if (v > now) next[k] = v
+	for (const id of ids) next[String(id)] = now + QUIET_MS
+	const patch: Session = { quietTabs: next }
+	await chrome.storage.session.set(patch)
+}
+
+export async function isQuiet(tabId: number): Promise<boolean> {
+	const until = (await session()).quietTabs?.[String(tabId)]
+	return !!until && until > Date.now()
+}
+
+export async function guardUntil(): Promise<number> {
+	return (await session()).guardUntil ?? 0
+}
+
+export async function setGuardUntil(ts: number): Promise<void> {
+	const patch: Session = { guardUntil: ts }
+	await chrome.storage.session.set(patch)
+}
+
+export async function takeLastError(): Promise<string | null> {
+	const e = (await session()).lastError ?? null
+	if (e) await chrome.storage.session.set({ lastError: null } satisfies Session)
+	return e
+}
+
+export async function setLastError(e: string | null): Promise<void> {
+	await chrome.storage.session.set({ lastError: e } satisfies Session)
 }
 
 export async function lastSwitchAt(): Promise<number> {
