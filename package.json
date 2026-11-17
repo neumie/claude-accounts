@@ -1,0 +1,33 @@
+{
+	"name": "claude-accounts",
+	"version": "0.1.0",
+	"private": true,
+	"description": "Chrome extension: one Chrome profile per claude.ai account, artifact links open in the profile that can see them",
+	"type": "module",
+	"scripts": {
+		"build": "node build.mjs",
+		"typecheck": "tsc --noEmit",
+		"test": "node --test test/*.test.ts",
+		"check": "npm run typecheck && npm run build && npm test && npm run test:bundle",
+		"install-host": "npm run build && node host/install.ts",
+		"uninstall-host": "node host/install.ts --uninstall",
+		"test:bundle": "HOST_ENTRY=dist-host/host.mjs node --test test/host.test.ts"
+	},
+	"engines": {
+		"node": ">=23.6"
+	},
+	"dependencies": {
+		"solid-js": "^1.9.19"
+	},
+	"devDependencies": {
+		"@babel/core": "^7.29.13",
+		"@babel/preset-typescript": "^7.29.7",
+		"@rollup/plugin-babel": "^7.1.0",
+		"@rollup/plugin-node-resolve": "^16.0.3",
+		"@types/chrome": "^0.3.7",
+		"@types/node": "^26.6.6",
+		"babel-preset-solid": "^1.9.19",
+		"rollup": "^4.68.3",
+		"typescript": "^5.9.3"
+	}
+}

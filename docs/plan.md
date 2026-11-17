@@ -5,7 +5,7 @@ Chrome rozšíření (MV3) pro přepínání mezi Jakubovými claude.ai účty.
 1. **Auto:** otevřeš odkaz na artifact, který aktuální účet neotevře → rozšíření přepne na účet, který ho otevře, a stránku znovu načte.
 2. **Ručně:** popup se seznamem účtů (e-mail + org), přepnutí jedním klikem, je vidět, který účet je aktivní.
 
-Stav k 13. 11. 2026: research hotový, nic se nestavělo. Než začneme stavět, je potřeba **jeden živý test** (sekce 3), který rozhodne, jestli je hlavní přístup vůbec proveditelný.
+Stav k 17. 11. 2026: postavená **varianta B** (sekce 0), návod v `README.md`. Testy, typecheck a build procházejí. Pomocník je nainstalovaný a odpovídá. Živě v Chrome s účty to ještě neprošlo, viz „Neověřeno živě“ v sekci 0.
 
 **Účty** (od dispatchera, stejné jako v Okena AI proxy poolu):
 
@@ -20,6 +20,36 @@ Důsledky:
 - Claude Code jede přes proxy pool, takže artifact z Claude Code může patřit **kterémukoli** ze tří účtů [odhad]. Heuristika „nejdřív ucet1“ je proto slabá; víc váží cache a tichý probe (otázka 7). Lepší zdroj by byl záznam z Okena proxy, který účet obsloužil session, jež artifact publikovala (otázka 10).
 - Všechny tři účty používá i proxy → v žádném z nich nikdy „Log out of all sessions“ a rozšíření nesmí volat `/logout`.
 - Avatary ve variantách UI: iniciála z lokální části e-mailu (`U1`, `U2`, `U3`), protože doména je u všech stejná. Názvy orgů ve variantách jsou jen ilustrační.
+
+---
+
+## 0. Rozhodnutí (17. 11. 2026)
+
+Jakub nechal rozhodnutí na agentovi („rozhoduj ty, vyber to nejlepší“). Platí tohle, otázky v sekci 6 jsou tím uzavřené:
+
+1. **Varianta B: Chrome profil na účet + lokální router (native messaging host).** Ne A.
+   - Funguje jistě. Nestojí na DBSC ani na interních cookies a úložištích claude.ai, které se můžou kdykoli změnit. Živý test DBSC odpadá.
+   - Rozšíření **neukládá žádné session ani cookies**. Každý profil se přihlašuje normálně přes Anthropic, takže odpadá riziko úniku i šedá zóna v podmínkách.
+   - Nehrozí „involuntary logout“ ani rozbití session, které sdílí proxy pool.
+   - Cena: každý účet má vlastní okno Chrome (profily mají vlastní barvu a avatar, takže je hned vidět, kde jsi) a jednorázová instalace pomocníka (`npm run install-host`).
+2. **Jak to funguje:**
+   - Otevřeš artifact v profilu, jehož účet ho neotevře.
+   - Rozšíření se zeptá `/api/frame/<uuid>?bk=probe`. Když dostane 401/403/404, otevře odkaz ve správném profilu přes pomocníka (`open -na "Google Chrome" --args --profile-directory=…`) a původní tab zavře.
+   - Když se správný profil neví, zkouší postupně další profily. Pokusy eviduje sdílený stav v pomocníkovi, takže nevznikne smyčka.
+   - Popup: seznam účtů, klik = otevře claude.ai v profilu daného účtu.
+3. **Stack:** Solid + rollup/babel přesně podle Helmu, `@types/chrome`, `tsc --noEmit`, testy přes `node --test`.
+4. **UI:** varianta A (seznam účtů), anglicky. Sekci „This tab“ přebírám z varianty B, jen v jednodušší podobě.
+5. **Výchozí režim:** Auto. Je bezpečný, protože se jen otevírá odkaz v jiném profilu a nic se nepřepisuje. Volby Ask/Off zůstávají.
+6. **Šifrování:** není potřeba, nic citlivého se neukládá. Sdílený stav obsahuje jen e-maily, názvy orgů, UUID artifactů a jména profilů.
+7. **Tichý probe za ostatní účty:** v B není možný (každý profil vidí jen svoje cookies). Místo něj sdílená cache „artifact → účet“ napříč profily.
+8. **Okena proxy jako zdroj** (otázka 10): zatím ne, cache stačí.
+
+**Neověřeno živě** (potřebuje profily s účty, ověří se při prvním použití):
+- že `open -na "Google Chrome" --args --profile-directory=…` otevře odkaz v už běžícím Chrome ve správném profilu;
+- že pomocník najde vlastní profil rozšíření podle nonce v `Local Extension Settings` (záloha: ruční výběr v popupu);
+- jak přesně odpoví `/api/frame/<uuid>?bk=probe` účtu bez přístupu (kód se řídí tím, co dělá stránka claude.ai sama; při jakékoli nejasné odpovědi nedělá nic).
+
+Sekce 1–5 níže jsou původní research. Část o variantě A zůstává jako záznam, nestaví se.
 
 ---
 
