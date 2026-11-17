@@ -5,7 +5,7 @@ Chrome rozšíření (MV3) pro přepínání mezi Jakubovými claude.ai účty.
 1. **Auto:** otevřeš odkaz na artifact, který aktuální účet neotevře → rozšíření přepne na účet, který ho otevře, a stránku znovu načte.
 2. **Ručně:** popup se seznamem účtů (e-mail + org), přepnutí jedním klikem, je vidět, který účet je aktivní.
 
-Stav k 17. 11. 2026: postavená **varianta A** (jedno okno, výměna cookies), viz sekce 0a. Návod je v `README.md`. Testy, typecheck a build procházejí. Živě s účty to ještě neprošlo.
+Stav k 17. 11. 2026: postavená **varianta A** (jedno okno, výměna cookies), viz sekce 0a. Návod je v `README.md`. Testy, typecheck a build procházejí. Jakub 17. 11. 2026 živě ověřil ruční přepínání i automatické přepnutí na soukromý artifact jiného účtu.
 
 **Účty** (od dispatchera, stejné jako v Okena AI proxy poolu):
 
